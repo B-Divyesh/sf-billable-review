@@ -1,28 +1,44 @@
-# Billable Review — verification handoff
+# Billable Review — repair handoff
 
-## Status: FAIL
+## Status: repaired and ready for static deployment
 
-Independent verification of candidate `df3f8b23440221727c469520e052e5bdfe2e2aef` against https://billable-review.sociobot.in/ failed. The live deployment exactly matches a fresh build of this candidate, so the defects below are live.
+Repair commit: `6fb73260946791e49e75511456dbd0ce301cff24` (against verifier report commit `13ef8fcc364a549eea6ecfe7658992996ff0d938`). The researched brief, offline PWA artifact class, and all previously passing free workflow behaviour were preserved.
 
-## Blocking findings
+## Release blockers repaired
 
-- **Critical data loss:** restoring `{"version":1,"entries":[{}]}` after importing a row clears the existing IndexedDB store, shows the misleading “not a valid backup” toast, and leaves the product empty after reload. Invalid backup input must never mutate stored data.
-- **High accessibility:** the CSV import, import-another-CSV, and restore-backup inputs are `hidden` within non-focusable labels. They are skipped entirely by Tab, leaving keyboard-only users unable to import or restore data.
-- **Medium contract gap:** rows are grouped by client/project only, not client/project/date as the researched brief requires.
+1. **Invalid backup cannot erase local data.** `src/backup.ts` now validates the complete v1 backup schema (including every entry, dates, finite durations, statuses, source fields, settings, and unique IDs) before any IndexedDB write begins. Restore does not alter in-memory state until the replacement transaction has committed. `replaceEntries()` explicitly aborts on a request failure, preserving the prior transaction state.
+2. **Keyboard file actions work.** The three file inputs are visible to assistive technology and remain native, tabbable controls, while their label retains the existing button/text-action presentation. They have an explicit focus-within ring and work with Enter/Space.
+3. **Review groups include date.** Group and group-selection identities are client + project + ISO date; the date is displayed in every group header.
 
-## What passed
+## Exact regression coverage
 
-- Fresh `npm ci`; `npm test` 8/8; exact `npm run build`; `npm run test:e2e` 6/6 across desktop and 390 px mobile.
-- Live hashes for HTML, app JS/CSS, service worker, and manifest match the fresh `dist/` output exactly.
-- Normal import/review/invoice-reference validation/export, valid backup restore, malformed CSV/JSON rejection, original-row retention, and the 150-row limit work.
-- Live offline reload, worker-update toast, direct legal pages, 390 px no-overflow, visible skip-link focus, privacy request capture, and live Axe (0 serious/critical) pass.
-- Initial JS is 10.28 KB gzip; CSS is 4.32 KB gzip. No console/page errors in the free workflow.
+- Unit: complete backup is accepted; `{"version":1,"entries":[{}]}` is rejected before storage; duplicate IDs are rejected.
+- Browser: import an existing row, restore that exact malformed JSON, observe the error, reload, and verify the original row remains.
+- Browser: two `Acme / Website` rows on different dates plus an uncategorized row create three groups with date headers.
+- Browser: Tab reaches the initial CSV picker; Enter opens it and imports; Tab subsequently reaches both Import another CSV and Restore JSON backup.
 
-## Follow-up
+## Verification performed
 
-1. Validate the complete backup schema before opening a read-write IndexedDB transaction; preserve existing data on every parse/schema/storage failure and add a regression test for it.
-2. Use keyboard-focusable, labelled file inputs/buttons for all import/restore actions and add keyboard E2E coverage.
-3. Add the date level to the review grouping or revise the accepted brief only with explicit product approval.
-4. Re-run `npm ci && npm test && npm run build && npm run test:e2e`, then repeat the failing recovery and keyboard scenarios in `.factory/verification.md`.
+All commands ran from a clean `npm ci` install (70 packages, 0 audit vulnerabilities):
 
-The full evidence, header/cache observations, test commands, and non-blocking findings are in `.factory/verification.md`.
+```sh
+npm ci
+npm test
+npm run build
+npm run test:e2e
+```
+
+- `npm test`: **11/11** Vitest tests passed.
+- `npm run build`: passed TypeScript and Vite, created `dist/`; initial app JS is **10.82 KB gzip** and CSS **4.37 KB gzip**.
+- `npm run test:e2e`: **14/14 per project, 28 total** Playwright scenarios passed on desktop Chromium and the 390 × 844 mobile project. These cover import/review/resolve/export/persistence; malformed-recovery; grouping; keyboard file operations; Axe serious/critical findings on empty and populated states (0); no third-party requests in the local workflow; and offline reload.
+- Update flow: an isolated static server served a changed worker on `registration.update()`; the current controlled client displayed **“An update is ready. Reload to use it.”** after two worker fetches.
+- Local static response smoke: `/`, `/privacy`, `/terms` each returned 200; the manifest returned `application/manifest+json` and contains standalone display, versioned start URL, and 192/512/maskable icons.
+- Lighthouse 13.4.1 was attempted with the supplied Playwright Chromium. The browser tab crashes during Lighthouse screenshot capture (`TARGET_CRASHED`), so it did not produce a trustworthy score. This is the same container/CDP incompatibility documented by the independent verifier; the production bundle budget and browser accessibility checks above pass.
+
+## Deployment and post-deploy checks
+
+Deploy `dist/` as the static artifact for `billable-review` using `/opt/fleet/lib/deploy-static.sh billable-review dist`. The deployment helper supplies the static navigation fallback and `X-Content-Type-Options: nosniff` / `Referrer-Policy: strict-origin-when-cross-origin` headers. After deployment, verify `https://billable-review.sociobot.in/`, `/privacy`, `/terms`, manifest MIME type, headers, and fresh hashes for the generated app assets.
+
+## Known gaps / next steps
+
+No product release blockers remain. Lighthouse scoring is unavailable only because the supplied browser crashes under Lighthouse in this container; no functional browser, bundle-size, or Axe failure was observed.
