@@ -35,9 +35,20 @@ export async function replaceEntries(entries: TimeEntry[]): Promise<void> {
   const db = await database();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).clear();
-    entries.forEach(entry => tx.objectStore(STORE).put(entry));
+    const fail = () => {
+      // A failed request must abort the transaction so the preceding clear is
+      // rolled back. IndexedDB transactions are atomic once explicitly
+      // aborted, including quota and key-path failures.
+      try { tx.abort(); } catch { /* The browser has already aborted it. */ }
+    };
+    const clear = tx.objectStore(STORE).clear();
+    clear.onerror = fail;
+    entries.forEach(entry => {
+      const request = tx.objectStore(STORE).put(entry);
+      request.onerror = fail;
+    });
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error || new Error('Could not replace local entries.'));
+    tx.onabort = () => reject(tx.error || new Error('Could not replace local entries.'));
   });
 }

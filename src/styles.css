@@ -59,7 +59,9 @@ footer p { margin: 0; }
 .button.ghost { border-color: var(--rule); background: transparent; color: var(--ink); }
 .button.small { min-height: 40px; padding: 8px 13px; }
 .button.full { display: flex; width: 100%; }
-.file-button { position: relative; }
+.file-button { position: relative; overflow: hidden; }
+.file-button input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.file-button:focus-within { outline: 3px solid var(--coral); outline-offset: 3px; }
 
 .hero { display: grid; width: min(1280px, calc(100% - 48px)); margin: 56px auto 0; align-items: center; grid-template-columns: minmax(340px, .86fr) minmax(500px, 1.14fr); gap: clamp(32px, 5vw, 80px); }
 .hero-copy { padding: 40px 0; }
@@ -110,6 +112,7 @@ footer p { margin: 0; }
 .entry-group > header { display: flex; min-height: 88px; padding: 18px 20px; align-items: center; justify-content: space-between; gap: 20px; border-top: 3px solid var(--ink); border-bottom: 1px solid var(--rule); }
 .entry-group > header p { margin: 0; color: var(--coral-deep); font: 800 12px ui-monospace, monospace; text-transform: uppercase; letter-spacing: .06em; }
 .entry-group > header h2 { margin: 3px 0 0; font-size: 23px; }
+.group-date { display: block; margin-top: 5px; color: var(--ink-soft); font: 700 13px ui-monospace, monospace; }
 .group-total { display: flex; align-items: center; gap: 18px; }
 .group-total strong { font: 800 18px ui-monospace, monospace; white-space: nowrap; }
 .select-group { display: flex; min-height: 44px; align-items: center; gap: 7px; color: var(--ink-soft); cursor: pointer; }

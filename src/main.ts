@@ -1,4 +1,5 @@
 import './styles.css';
+import { parseBackup } from './backup';
 import { importCsv, roundMinutes, csvEscape } from './csv';
 import { getEntries, putEntries, replaceEntries } from './db';
 import { BUY_URL, captureLicense, getLicense, saveLicense, verifyLicense } from './license';
@@ -57,7 +58,7 @@ function emptyView(): string {
   return `<section class="hero">
     <div class="hero-copy"><p class="eyebrow">THE GAP BETWEEN TIMER AND INVOICE</p><h1>Find the hours that never made it across.</h1>
       <p class="lede">Bring a CSV from Toggl, Clockify, Harvest, or another timer. Review exceptions, record invoice references, and export clean line items—entirely on your device.</p>
-      <label class="button primary file-button">Choose a time CSV<input type="file" data-import accept=".csv,text/csv" hidden></label>
+      <label class="button primary file-button">Choose a time CSV<input type="file" data-import accept=".csv,text/csv"></label>
       <p class="microcopy">Nothing is uploaded. Date and duration columns are required.</p>
     </div>
     <figure class="hero-art"><picture><source type="image/avif" srcset="/assets/hero-ledger-960.avif 960w"><source type="image/webp" srcset="/assets/hero-ledger-960.webp 960w, /assets/hero-ledger-1536.webp 1536w"><img src="/assets/hero-ledger-960.webp" width="960" height="640" alt="Paper time slips crossing a midnight bridge from a clock-shaped island into a red ledger" fetchpriority="high" decoding="async"></picture><figcaption>Every slip deserves a destination.</figcaption></figure>
@@ -100,18 +101,19 @@ function boardView(): string {
   const percent = entries.length ? Math.round(reconciled.length / entries.length * 100) : 0;
   const groups = new Map<string, TimeEntry[]>();
   visible.forEach(entry => {
-    const key = `${entry.client || 'No client'}|||${entry.project || 'No project'}`;
+    const key = JSON.stringify([entry.client || 'No client', entry.project || 'No project', entry.date]);
     groups.set(key, [...(groups.get(key) || []), entry]);
   });
   const groupMarkup = [...groups].map(([key, list]) => {
-    const [client, project] = key.split('|||');
-    return `<section class="entry-group"><header><div><p>${esc(client)}</p><h2>${esc(project)}</h2></div><div class="group-total"><strong>${hours(list.reduce((sum, entry) => sum + entry.roundedMinutes, 0))}</strong><label class="select-group"><input type="checkbox" data-select-group="${esc(key)}" ${list.every(entry => selected.has(entry.id)) ? 'checked' : ''}> Select group</label></div></header><ul>${groupRows(list)}</ul></section>`;
+    const [client, project, date] = JSON.parse(key) as [string, string, string];
+    const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    return `<section class="entry-group"><header><div><p>${esc(client)}</p><h2>${esc(project)}</h2><time class="group-date" datetime="${esc(date)}">${esc(dateLabel)}</time></div><div class="group-total"><strong>${hours(list.reduce((sum, entry) => sum + entry.roundedMinutes, 0))}</strong><label class="select-group"><input type="checkbox" data-select-group="${esc(key)}" ${list.every(entry => selected.has(entry.id)) ? 'checked' : ''}> Select group</label></div></header><ul>${groupRows(list)}</ul></section>`;
   }).join('');
-  return `<div class="board-heading"><div><p class="eyebrow">LOCAL REVIEW LEDGER</p><h1>What still needs a destination?</h1><p>Imported rows stay intact. Decisions autosave on this device.</p></div><label class="button secondary file-button">Import another CSV<input type="file" data-import accept=".csv,text/csv" hidden></label></div>
+  return `<div class="board-heading"><div><p class="eyebrow">LOCAL REVIEW LEDGER</p><h1>What still needs a destination?</h1><p>Imported rows stay intact. Decisions autosave on this device.</p></div><label class="button secondary file-button">Import another CSV<input type="file" data-import accept=".csv,text/csv"></label></div>
   <section class="ledger-layout" aria-label="Review board">
     <aside class="summary-rail"><div class="summary-mark"><span>${percent}%</span><small>reconciled</small></div>
       <dl><div><dt>Open time</dt><dd>${hours(totalMinutes)}</dd></div><div><dt>Needs review</dt><dd>${open.length}</dd></div><div><dt>Stale</dt><dd>${open.filter(isStale).length}</dd></div><div><dt>Uncategorized</dt><dd>${open.filter(isUncategorized).length}</dd></div></dl>
-      <button class="text-action" data-action="settings">Rounding: ${settings.rounding ? `${settings.rounding} min up` : 'Exact'}</button><button class="text-action" data-action="backup">Export JSON backup</button><label class="text-action file-button">Restore JSON backup<input type="file" data-restore accept="application/json,.json" hidden></label><button class="text-action danger-text" data-action="erase">Erase local data</button>
+      <button class="text-action" data-action="settings">Rounding: ${settings.rounding ? `${settings.rounding} min up` : 'Exact'}</button><button class="text-action" data-action="backup">Export JSON backup</button><label class="text-action file-button">Restore JSON backup<input type="file" data-restore accept="application/json,.json"></label><button class="text-action danger-text" data-action="erase">Erase local data</button>
     </aside>
     <div class="ledger"><div class="toolbar"><div class="filters" role="group" aria-label="Filter entries">${['open', 'stale', 'uncategorized', 'reconciled', 'all'].map(name => `<button data-filter="${name}" aria-pressed="${filter === name}">${name[0].toUpperCase() + name.slice(1)}</button>`).join('')}</div><label class="search"><span class="sr-only">Search entries</span><input type="search" data-search placeholder="Search client, project, note…" value="${esc(query)}"></label></div>
     ${selected.size ? `<div class="bulk-bar"><strong>${selected.size} selected</strong><button class="button primary small" data-action="resolve">Resolve selected</button><button class="button ghost small" data-action="clear-selection">Clear</button></div>` : ''}
@@ -236,9 +238,9 @@ function bindGlobal(): void {
 }
 
 function bindView(): void {
-  document.querySelectorAll<HTMLInputElement>('[data-import]').forEach(input => input.addEventListener('change', () => { if (input.files?.[0]) void handleCsv(input.files[0]); }));
+  document.querySelectorAll<HTMLInputElement>('[data-import]').forEach(input => input.addEventListener('change', () => { if (input.files?.[0]) void handleCsv(input.files[0]); input.value = ''; }));
   document.querySelectorAll<HTMLInputElement>('[data-select]').forEach(input => input.addEventListener('change', () => { input.checked ? selected.add(input.dataset.select!) : selected.delete(input.dataset.select!); render(); }));
-  document.querySelectorAll<HTMLInputElement>('[data-select-group]').forEach(input => input.addEventListener('change', () => { const [client, project] = input.dataset.selectGroup!.split('|||'); entries.filter(entry => (entry.client || 'No client') === client && (entry.project || 'No project') === project).forEach(entry => input.checked ? selected.add(entry.id) : selected.delete(entry.id)); render(); }));
+  document.querySelectorAll<HTMLInputElement>('[data-select-group]').forEach(input => input.addEventListener('change', () => { const [client, project, date] = JSON.parse(input.dataset.selectGroup!) as [string, string, string]; entries.filter(entry => (entry.client || 'No client') === client && (entry.project || 'No project') === project && entry.date === date).forEach(entry => input.checked ? selected.add(entry.id) : selected.delete(entry.id)); render(); }));
   document.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach(button => button.addEventListener('click', () => { filter = button.dataset.filter!; selected.clear(); render(); }));
   document.querySelector<HTMLInputElement>('[data-search]')?.addEventListener('input', event => { query = (event.target as HTMLInputElement).value; const position = query.length; render(); const next = document.querySelector<HTMLInputElement>('[data-search]'); next?.focus(); next?.setSelectionRange(position, position); });
   document.querySelectorAll<HTMLButtonElement>('[data-edit]').forEach(button => button.addEventListener('click', () => openResolve([button.dataset.edit!] as string[])));
@@ -247,7 +249,25 @@ function bindView(): void {
   document.querySelector('[data-action="export"]')?.addEventListener('click', exportCsv);
   document.querySelector('[data-action="settings"]')?.addEventListener('click', openSettings);
   document.querySelector('[data-action="backup"]')?.addEventListener('click', () => download(`billable-review-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), entries, settings }, null, 2), 'application/json'));
-  document.querySelector<HTMLInputElement>('[data-restore]')?.addEventListener('change', async event => { try { const data = JSON.parse(await (event.target as HTMLInputElement).files![0].text()); if (data.version !== 1 || !Array.isArray(data.entries)) throw new Error(); entries = data.entries; await replaceEntries(entries); render(); showToast(`${entries.length} rows restored from backup.`); } catch { showToast('That is not a valid Billable Review backup.'); } });
+  document.querySelector<HTMLInputElement>('[data-restore]')?.addEventListener('change', async event => {
+    const input = event.target as HTMLInputElement;
+    try {
+      const file = input.files?.[0];
+      if (!file) return;
+      const backup = parseBackup(await file.text());
+      // Keep the in-memory ledger untouched until the atomic IndexedDB write
+      // has committed successfully.
+      await replaceEntries(backup.entries);
+      entries = backup.entries;
+      selected.clear();
+      render();
+      showToast(`${entries.length} rows restored from backup.`);
+    } catch {
+      showToast('That is not a valid Billable Review backup.');
+    } finally {
+      input.value = '';
+    }
+  });
   document.querySelector('[data-action="erase"]')?.addEventListener('click', async () => { if (!confirm(`Erase all ${entries.length} locally saved rows? Export a backup first if you may need them.`)) return; entries = []; selected.clear(); await replaceEntries([]); render(); showToast('All local review data was erased.'); });
 }
 
