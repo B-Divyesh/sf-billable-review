@@ -59,7 +59,7 @@ footer p { margin: 0; }
 .button.primary:hover { background: var(--coral-deep); }
 .button.secondary { border-color: var(--ink); background: transparent; color: var(--ink); box-shadow: 3px 3px 0 var(--ink); }
 .button.ghost { border-color: var(--rule); background: transparent; color: var(--ink); }
-.button.small { min-height: 40px; padding: 8px 13px; }
+.button.small { min-height: 44px; padding: 8px 13px; }
 .button.full { display: flex; width: 100%; }
 .file-button { position: relative; overflow: hidden; }
 .file-button input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
@@ -173,6 +173,7 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
 .notice { padding: 10px 12px; border-left: 4px solid var(--gold); background: var(--gold-pale); }
 .success-note { padding: 12px; color: #214e3a; background: #deeee6; font-weight: 800; }
 .merchant, .legal-links { margin: 12px 0; color: var(--ink-soft); font-size: 13px; text-align: center; }
+.legal-links a { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
 .license-panel form { margin-top: 24px; padding: 22px 0 0; border-top: 1px solid var(--rule); }
 .art-note img { width: 100%; height: auto; margin-bottom: 18px; }
 .art-note p { margin-bottom: 0; }

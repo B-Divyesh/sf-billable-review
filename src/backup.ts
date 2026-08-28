@@ -25,14 +25,18 @@ function isStringMap(value: unknown): value is Record<string, string> {
 
 function isEntry(value: unknown): value is TimeEntry {
   if (!isRecord(value)) return false;
+  const status = value.status as EntryStatus;
+  const outcomeIsComplete =
+    (status !== 'invoiced' || (typeof value.invoiceRef === 'string' && value.invoiceRef.trim().length > 0)) &&
+    (status !== 'written_off' || (typeof value.resolutionNote === 'string' && value.resolutionNote.trim().length > 0));
   return typeof value.id === 'string' && value.id.length > 0 &&
     typeof value.batchId === 'string' && typeof value.importedAt === 'string' && !Number.isNaN(Date.parse(value.importedAt)) &&
     isDate(value.date) && typeof value.client === 'string' && typeof value.project === 'string' &&
-    typeof value.description === 'string' && typeof value.minutes === 'number' && Number.isFinite(value.minutes) && value.minutes >= 0 &&
-    typeof value.roundedMinutes === 'number' && Number.isFinite(value.roundedMinutes) && value.roundedMinutes >= 0 && typeof value.billable === 'boolean' &&
+    typeof value.description === 'string' && typeof value.minutes === 'number' && Number.isInteger(value.minutes) && value.minutes > 0 &&
+    typeof value.roundedMinutes === 'number' && Number.isInteger(value.roundedMinutes) && value.roundedMinutes > 0 && typeof value.billable === 'boolean' &&
     (value.roundingIncrement === undefined || (typeof value.roundingIncrement === 'number' && roundingValues.includes(value.roundingIncrement as Settings['rounding']))) &&
-    typeof value.status === 'string' && statuses.includes(value.status as EntryStatus) &&
-    typeof value.invoiceRef === 'string' && typeof value.resolutionNote === 'string' && isStringMap(value.original);
+    typeof value.status === 'string' && statuses.includes(status) && outcomeIsComplete &&
+    (value.billable || status === 'written_off') && typeof value.invoiceRef === 'string' && typeof value.resolutionNote === 'string' && isStringMap(value.original);
 }
 
 function isSettings(value: unknown): value is Settings {

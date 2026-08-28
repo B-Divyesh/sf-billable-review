@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { csvEscape, importCsv, parseCsv, parseDuration, roundMinutes } from '../src/csv';
+import { csvEscape, importCsv, parseCsv, parseDuration, roundMinutes, spreadsheetSafe } from '../src/csv';
 
 describe('CSV parser', () => {
   it('parses quoted commas and escaped quotes', () => {
@@ -60,5 +60,12 @@ describe('review math and export', () => {
 
   it('escapes exported values safely', () => {
     expect(csvEscape('Planning, "round 2"')).toBe('"Planning, ""round 2"""');
+  });
+
+  it('neutralizes every spreadsheet formula prefix without changing ordinary text', () => {
+    expect(['=2+2', ' +CMD', '-1+2', '@SUM(1+1)', '\tDDE', '\rDDE'].map(spreadsheetSafe)).toEqual([
+      "'=2+2", "' +CMD", "'-1+2", "'@SUM(1+1)", "'\tDDE", "'\rDDE"
+    ]);
+    expect(spreadsheetSafe('Planning, round 2')).toBe('Planning, round 2');
   });
 });

@@ -1,6 +1,6 @@
 import './styles.css';
 import { parseBackup } from './backup';
-import { importCsv, roundMinutes, csvEscape } from './csv';
+import { importCsv, roundMinutes, csvEscape, spreadsheetSafe } from './csv';
 import { getEntries, putEntries, replaceEntries } from './db';
 import { BUY_URL, captureLicense, getLicense, saveLicense, verifyLicense } from './license';
 import type { EntryStatus, LicenseState, Settings, TimeEntry } from './types';
@@ -168,7 +168,7 @@ function exportCsv(): void {
   if (!ready.length) { showToast('Approve at least one row before exporting line items.'); return; }
   const headers = ['Date', 'Client', 'Project', 'Description', 'Original hours', 'Rounded hours', 'Status', 'Invoice reference'];
   const rows = ready.map(entry => [entry.date, entry.client, entry.project, entry.description, (entry.minutes / 60).toFixed(2), (entry.roundedMinutes / 60).toFixed(2), labelStatus[entry.status], entry.invoiceRef]);
-  download(`billable-review-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\n'), 'text/csv;charset=utf-8');
+  download(`billable-review-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows].map(row => row.map(value => csvEscape(spreadsheetSafe(value))).join(',')).join('\n'), 'text/csv;charset=utf-8');
   showToast(`${ready.length} approved line items exported.`);
 }
 

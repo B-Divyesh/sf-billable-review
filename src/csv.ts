@@ -147,3 +147,13 @@ export function csvEscape(value: unknown): string {
   const text = String(value ?? '');
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
+
+/**
+ * Keep a derived accounting CSV from interpreting user-authored text as a
+ * spreadsheet formula. The apostrophe is intentionally added only at export;
+ * imported source values and JSON backups remain byte-for-byte unchanged.
+ */
+export function spreadsheetSafe(value: unknown): string {
+  const text = String(value ?? '');
+  return /^[\t\r]|^\s*[=+\-@]/.test(text) ? `'${text}` : text;
+}

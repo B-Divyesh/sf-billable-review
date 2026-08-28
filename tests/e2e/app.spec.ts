@@ -121,6 +121,29 @@ test('rejects impossible dates before storage and invoice export', async ({ page
   expect(exported).not.toContain('2026-99-99');
 });
 
+test('neutralizes spreadsheet formulas only in the derived invoice CSV', async ({ page }) => {
+  await page.goto('/');
+  const source = 'Date,Client,Project,Description,Hours\n2026-08-01,=2+2,@SUM(1+1),+CMD,1';
+  await page.getByLabel('Choose a time CSV').setInputFiles({ name: 'formula-prefixes.csv', mimeType: 'text/csv', buffer: Buffer.from(source) });
+  await page.getByRole('button', { name: /Review \+CMD/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save outcome' }).click();
+
+  const invoiceDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export approved CSV' }).click();
+  const invoicePath = await (await invoiceDownload).path();
+  expect(invoicePath).not.toBeNull();
+  const invoiceCsv = await readFile(invoicePath!, 'utf8');
+  expect(invoiceCsv).toContain("2026-08-01,'=2+2,'@SUM(1+1),'+CMD,1.00,1.00,Approved,");
+  expect(invoiceCsv).not.toContain('2026-08-01,=2+2,@SUM(1+1),+CMD');
+
+  const backupDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON backup' }).click();
+  const backupPath = await (await backupDownload).path();
+  expect(backupPath).not.toBeNull();
+  const backup = JSON.parse(await readFile(backupPath!, 'utf8')) as { entries: Array<{ client: string; project: string; description: string }> };
+  expect(backup.entries[0]).toMatchObject({ client: '=2+2', project: '@SUM(1+1)', description: '+CMD' });
+});
+
 test('restores exported review settings with entry data', async ({ page }) => {
   await page.goto('/');
   const backup = {
@@ -141,14 +164,37 @@ test('restores exported review settings with entry data', async ({ page }) => {
   await expect(dialog.getByLabel('Flag entries stale after')).toHaveValue('1');
 });
 
-test('gives footer links full-size touch targets', async ({ page }) => {
+test('gives secondary actions and legal links full-size touch targets', async ({ page }) => {
   await page.goto('/');
-  const boxes = await page.locator('.footer-links a').evaluateAll(links => links.map(link => {
+  const footerBoxes = await page.locator('.footer-links a').evaluateAll(links => links.map(link => {
     const rect = link.getBoundingClientRect();
     return { width: rect.width, height: rect.height };
   }));
-  expect(boxes).toHaveLength(3);
-  for (const box of boxes) {
+  expect(footerBoxes).toHaveLength(3);
+  for (const box of footerBoxes) {
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
+
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
+  await page.locator('[data-select]').first().check();
+  const bulkBoxes = await page.locator('.bulk-bar button').evaluateAll(buttons => buttons.map(button => {
+    const rect = button.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }));
+  expect(bulkBoxes).toHaveLength(2);
+  for (const box of bulkBoxes) {
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
+
+  await page.getByRole('button', { name: 'Get lifetime' }).click();
+  const licenseLinkBoxes = await page.locator('.license-panel .legal-links a').evaluateAll(links => links.map(link => {
+    const rect = link.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }));
+  expect(licenseLinkBoxes).toHaveLength(2);
+  for (const box of licenseLinkBoxes) {
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.width).toBeGreaterThanOrEqual(44);
   }
@@ -173,6 +219,24 @@ test('keeps existing rows when a malformed backup is rejected', async ({ page })
   await expect(page.getByRole('status')).toContainText('That is not a valid Billable Review backup.');
   await page.reload();
   await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
+});
+
+test('rejects an invoiced backup row without a reference before replacing stored data', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
+  const invalidBackup = {
+    version: 1,
+    entries: [{
+      id: 'invalid-invoice', batchId: 'backup-1', importedAt: '2026-08-28T00:00:00.000Z', date: '2026-08-01',
+      client: 'Acme', project: 'Site', description: 'Missing reference', minutes: 60, roundedMinutes: 60,
+      roundingIncrement: 0, billable: true, status: 'invoiced', invoiceRef: '', resolutionNote: '', original: { Date: '2026-08-01' }
+    }]
+  };
+  await page.getByLabel('Restore JSON backup').setInputFiles({ name: 'invalid-invoice.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(invalidBackup)) });
+  await expect(page.getByRole('status')).toContainText('That is not a valid Billable Review backup.');
+  await page.reload();
+  await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
+  await expect(page.getByText('Missing reference', { exact: true })).toHaveCount(0);
 });
 
 test('groups review rows by client, project, and date', async ({ page }) => {

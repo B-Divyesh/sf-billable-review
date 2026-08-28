@@ -24,4 +24,13 @@ describe('backup validation', () => {
   it('rejects duplicate entry keys that IndexedDB could not safely restore', () => {
     expect(() => parseBackup(JSON.stringify({ version: 1, entries: [validEntry, validEntry] }))).toThrow('That is not a valid Billable Review backup.');
   });
+
+  it.each([
+    { ...validEntry, status: 'invoiced', invoiceRef: '   ' },
+    { ...validEntry, status: 'written_off', resolutionNote: '' },
+    { ...validEntry, minutes: 0, roundedMinutes: 0 },
+    { ...validEntry, billable: false, status: 'approved' }
+  ])('rejects entries that violate review outcome or imported-duration invariants', invalidEntry => {
+    expect(() => parseBackup(JSON.stringify({ version: 1, entries: [invalidEntry] }))).toThrow('That is not a valid Billable Review backup.');
+  });
 });
