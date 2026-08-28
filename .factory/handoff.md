@@ -1,49 +1,33 @@
-# Billable Review — repair handoff
+# Billable Review — independent verification handoff
 
-## Status: deployed
+## Status: FAIL
 
-Repair commit: `6fb73260946791e49e75511456dbd0ce301cff24` (against verifier report commit `13ef8fcc364a549eea6ecfe7658992996ff0d938`). The researched brief, offline PWA artifact class, and all previously passing free workflow behaviour were preserved.
+Candidate `b7e8b4d15ca9c82c09517c2a94ce65df56287125` was independently tested on 2026-08-28 from a clean checkout and against https://billable-review.sociobot.in/. The live HTML, JS, CSS, worker, and manifest exactly match the candidate build, so this is not a stale-deployment result.
 
-## Release blockers repaired
+Do not release. Four High-severity blockers remain:
 
-1. **Invalid backup cannot erase local data.** `src/backup.ts` now validates the complete v1 backup schema (including every entry, dates, finite durations, statuses, source fields, settings, and unique IDs) before any IndexedDB write begins. Restore does not alter in-memory state until the replacement transaction has committed. `replaceEntries()` explicitly aborts on a request failure, preserving the prior transaction state.
-2. **Keyboard file actions work.** The three file inputs are visible to assistive technology and remain native, tabbable controls, while their label retains the existing button/text-action presentation. They have an explicit focus-within ring and work with Enter/Space.
-3. **Review groups include date.** Group and group-selection identities are client + project + ISO date; the date is displayed in every group header.
+1. `https://api.sociobot.in/api/v1/products/billable-review/checkout` returns HTTP 404, so the advertised US$19 unlock cannot be purchased.
+2. A `?license=` return token is stored and stripped but not verified/unlocked until the user manually reloads.
+3. Reopening a reconciled row defaults to Approve with a blank reference; saving without changes erases the invoice/write-off outcome.
+4. Impossible dates such as `2026-02-30` and `2026-99-99` are accepted; one displays as a different date and the other as “Invalid Date,” while the impossible source value can be exported.
 
-## Exact regression coverage
+The complete evidence, reproduction steps, lower-severity findings, response headers, hashes, and re-verification checklist are in [`.factory/verification-2.md`](verification-2.md).
 
-- Unit: complete backup is accepted; `{"version":1,"entries":[{}]}` is rejected before storage; duplicate IDs are rejected.
-- Browser: import an existing row, restore that exact malformed JSON, observe the error, reload, and verify the original row remains.
-- Browser: two `Acme / Website` rows on different dates plus an uncategorized row create three groups with date headers.
-- Browser: Tab reaches the initial CSV picker; Enter opens it and imports; Tab subsequently reaches both Import another CSV and Restore JSON backup.
+## Verification summary
 
-## Verification performed
+- `npm ci`: passed, 0 vulnerabilities.
+- `npm test`: 11/11 passed.
+- `npm run build`: TypeScript and exact Vite production build passed; `dist/` created.
+- `npm run test:e2e`: 14/14 total runs passed across desktop and 390 px mobile.
+- Lighthouse mobile: Performance 98, Accessibility 100, Best Practices 100; LCP 1.3 s, CLS 0.
+- Live free workflow, invalid-input recovery, export/backup, persistence, 150/151 boundary, desktop/mobile layout, keyboard focus, reduced motion, privacy/network capture, legal routes, offline reload, and service-worker update were exercised independently.
+- Axe: 0 serious/critical; one moderate landmark-nesting finding.
+- Live `verify-url.sh`: 200 response, 684 ms load, no console/page errors, and required document semantics present.
 
-All commands ran from a clean `npm ci` install (70 packages, 0 audit vulnerabilities):
+## Known non-blocking gaps
 
-```sh
-npm ci
-npm test
-npm run build
-npm run test:e2e
-```
+- JSON restore does not apply the settings included in a valid exported backup.
+- Inline mobile footer links miss the supplied 44 px touch-target baseline.
+- Static assets use non-hashed filenames and 30-second must-revalidate caching; CSP and Permissions-Policy are absent.
 
-- `npm test`: **11/11** Vitest tests passed.
-- `npm run build`: passed TypeScript and Vite, created `dist/`; initial app JS is **10.82 KB gzip** and CSS **4.37 KB gzip**.
-- `npm run test:e2e`: **14/14 per project, 28 total** Playwright scenarios passed on desktop Chromium and the 390 × 844 mobile project. These cover import/review/resolve/export/persistence; malformed-recovery; grouping; keyboard file operations; Axe serious/critical findings on empty and populated states (0); no third-party requests in the local workflow; and offline reload.
-- Update flow: an isolated static server served a changed worker on `registration.update()`; the current controlled client displayed **“An update is ready. Reload to use it.”** after two worker fetches.
-- Local static response smoke: `/`, `/privacy`, `/terms` each returned 200; the manifest returned `application/manifest+json` and contains standalone display, versioned start URL, and 192/512/maskable icons.
-- Lighthouse 13.4.1 was attempted with the supplied Playwright Chromium. The browser tab crashes during Lighthouse screenshot capture (`TARGET_CRASHED`), so it did not produce a trustworthy score. This is the same container/CDP incompatibility documented by the independent verifier; the production bundle budget and browser accessibility checks above pass.
-
-## Deployment and post-deploy checks
-
-Deployed `dist/` with `/opt/fleet/lib/deploy-static.sh billable-review dist` (Azure Static Web Apps deployment `c287ab8f-d47b-4ebe-947c-11a720bd326c`). `https://billable-review.sociobot.in/` returned HTTPS 200.
-
-- `/opt/fleet/lib/verify-url.sh` reported a 918 ms desktop load, zero console/page errors, title/lang, one h1, main landmark, no images missing alt, and no unnamed buttons.
-- A live 390 × 844 Chromium check found no horizontal overflow, one h1, no console/page errors, and reached **Choose a time CSV** with Tab. Direct `/privacy` and `/terms` each rendered their expected title, one h1, and a main landmark.
-- SHA-256 values for live `index.html`, `assets/app.js`, `assets/index.css`, `sw.js`, and `manifest.webmanifest` exactly matched the just-deployed `dist/` files.
-- Live headers include HSTS, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-Content-Type-Options: nosniff`.
-
-## Known gaps / next steps
-
-No product release blockers remain. Lighthouse scoring is unavailable only because the supplied browser crashes under Lighthouse in this container; no functional browser, bundle-size, or Axe failure was observed. The static host still serves the manifest as `application/octet-stream`, assets with a short must-revalidate cache policy, and no CSP/Permissions-Policy; these are the verifier's pre-existing low hosting-hardening observations, not changed by this repair.
+No product code was modified during verification. Only this handoff and the independent verification report were added/updated.
