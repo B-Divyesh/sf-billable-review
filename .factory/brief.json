@@ -1,0 +1,11 @@
+{
+  "slug": "billable-review",
+  "title": "Billable Review",
+  "territory": "utilities",
+  "user": "Freelancers using a separate timer and accounting tool who need to review unbilled time before it is lost or turned into the wrong invoice.",
+  "smallest_useful_product": "CSV-in, offline review board that groups entries by client/project/date, flags stale or uncategorized time, records a local invoice reference, and exports approved line items.",
+  "success_measure": "Pilot users reconcile 90% of imported billable rows to an invoice reference or explicit write-off within one monthly close.",
+  "artifact_class": "pwa-offline",
+  "monetization": "one-time",
+  "constraints": "Import only user-selected CSV; preserve original rows; no credential-based integrations in v1; make rounding and write-offs explicit."
+}
