@@ -1,6 +1,6 @@
 # Billable Review — repair handoff
 
-## Status: repaired and ready for static deployment
+## Status: deployed
 
 Repair commit: `6fb73260946791e49e75511456dbd0ce301cff24` (against verifier report commit `13ef8fcc364a549eea6ecfe7658992996ff0d938`). The researched brief, offline PWA artifact class, and all previously passing free workflow behaviour were preserved.
 
@@ -37,8 +37,13 @@ npm run test:e2e
 
 ## Deployment and post-deploy checks
 
-Deploy `dist/` as the static artifact for `billable-review` using `/opt/fleet/lib/deploy-static.sh billable-review dist`. The deployment helper supplies the static navigation fallback and `X-Content-Type-Options: nosniff` / `Referrer-Policy: strict-origin-when-cross-origin` headers. After deployment, verify `https://billable-review.sociobot.in/`, `/privacy`, `/terms`, manifest MIME type, headers, and fresh hashes for the generated app assets.
+Deployed `dist/` with `/opt/fleet/lib/deploy-static.sh billable-review dist` (Azure Static Web Apps deployment `c287ab8f-d47b-4ebe-947c-11a720bd326c`). `https://billable-review.sociobot.in/` returned HTTPS 200.
+
+- `/opt/fleet/lib/verify-url.sh` reported a 918 ms desktop load, zero console/page errors, title/lang, one h1, main landmark, no images missing alt, and no unnamed buttons.
+- A live 390 × 844 Chromium check found no horizontal overflow, one h1, no console/page errors, and reached **Choose a time CSV** with Tab. Direct `/privacy` and `/terms` each rendered their expected title, one h1, and a main landmark.
+- SHA-256 values for live `index.html`, `assets/app.js`, `assets/index.css`, `sw.js`, and `manifest.webmanifest` exactly matched the just-deployed `dist/` files.
+- Live headers include HSTS, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-Content-Type-Options: nosniff`.
 
 ## Known gaps / next steps
 
-No product release blockers remain. Lighthouse scoring is unavailable only because the supplied browser crashes under Lighthouse in this container; no functional browser, bundle-size, or Axe failure was observed.
+No product release blockers remain. Lighthouse scoring is unavailable only because the supplied browser crashes under Lighthouse in this container; no functional browser, bundle-size, or Axe failure was observed. The static host still serves the manifest as `application/octet-stream`, assets with a short must-revalidate cache policy, and no CSP/Permissions-Policy; these are the verifier's pre-existing low hosting-hardening observations, not changed by this repair.
