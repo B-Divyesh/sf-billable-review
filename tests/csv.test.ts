@@ -24,6 +24,11 @@ describe('CSV parser', () => {
     expect(result.skipped).toBe(1);
   });
 
+  it('keeps non-billable source rows out of the open ledger', () => {
+    const result = importCsv('Date,Hours,Billable\n2026-08-01,1,No');
+    expect(result.entries[0]).toMatchObject({ billable: false, status: 'written_off', resolutionNote: 'Marked non-billable in source CSV' });
+  });
+
   it('explains missing required columns', () => {
     expect(() => importCsv('Client,Notes\nAcme,Work')).toThrow(/date and duration/);
   });

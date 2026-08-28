@@ -1,5 +1,5 @@
-const CACHE = 'billable-review-shell-v1';
-const SHELL = ['/', '/offline.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/assets/hero-ledger-960.webp', '/assets/hero-ledger-1536.webp'];
+const CACHE = 'billable-review-shell-v2';
+const SHELL = ['/', '/offline.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/assets/app.js', '/assets/index.css', '/assets/hero-ledger-960.avif', '/assets/hero-ledger-960.webp', '/assets/hero-ledger-1536.webp'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));

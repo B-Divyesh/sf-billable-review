@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://billable-review.sociobot.in/sitemap.xml

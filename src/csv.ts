@@ -88,6 +88,7 @@ export function importCsv(text: string, fileName = 'time-export.csv', now = new 
     const minutes = parseDuration(values[indexes.duration] || '', headers[indexes.duration]);
     if (!date || minutes <= 0) { skipped += 1; return; }
     const original = Object.fromEntries(headers.map((header, column) => [header, values[column] || '']));
+    const billable = indexes.billable < 0 || isBillable(values[indexes.billable] || '');
     entries.push({
       id: `${batchId}-${index + 1}`,
       batchId,
@@ -98,10 +99,10 @@ export function importCsv(text: string, fileName = 'time-export.csv', now = new 
       description: indexes.description >= 0 ? values[indexes.description] || '' : '',
       minutes,
       roundedMinutes: minutes,
-      billable: indexes.billable < 0 || isBillable(values[indexes.billable] || ''),
-      status: 'review',
+      billable,
+      status: billable ? 'review' : 'written_off',
       invoiceRef: '',
-      resolutionNote: '',
+      resolutionNote: billable ? '' : 'Marked non-billable in source CSV',
       original
     });
   });
