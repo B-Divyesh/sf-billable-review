@@ -1,39 +1,28 @@
-# Billable Review — build handoff
+# Billable Review — verification handoff
 
-## Shipped
+## Status: FAIL
 
-- Complete local-first CSV reconciliation: common timer headers, quoted CSV, original-row preservation, invalid-row reporting, and safe treatment of non-billable source rows.
-- An exception-first ledger grouped by client/project, with stale and uncategorized filters, search, bulk selection, visible rounding, invoice references, write-off reasons, and progress.
-- Approved-line CSV export and full JSON backup/restore. IndexedDB survives refresh, install, and offline use. Users can erase all local data with a specific confirmation.
-- A PWA manifest, 192/512/maskable icons, versioned shell cache, offline fallback and state notice, plus an update-ready toast.
-- A useful 150-row free tier and US$19 one-time unlimited-import unlock through the Sociobot API. Cached licenses never block first paint; token restore and invalid-license handling are included. Export, backups, accessibility, and existing data are never gated.
-- Dedicated `/privacy` and `/terms` routes, responsive 390 px layout, visible focus, native focus-trapped dialogs, reduced motion, and no analytics/CDNs/runtime third parties.
-- Original “midnight paper crossing” artwork, reviewed and shipped as responsive 21 KB AVIF / 39 KB and 99 KB WebP variants. Prompt and provenance are in `.factory/design.md` and `assets/src/hero-ledger.json`.
+Independent verification of candidate `df3f8b23440221727c469520e052e5bdfe2e2aef` against https://billable-review.sociobot.in/ failed. The live deployment exactly matches a fresh build of this candidate, so the defects below are live.
 
-## Verification (2026-08-28)
+## Blocking findings
 
-- `npm test`: 8/8 unit tests pass.
-- `npm run build`: TypeScript and Vite pass; output is `dist/` with `index.html`, direct legal-route HTML, manifest, icons, and service worker.
-- `npm run test:e2e`: 6/6 tests pass across desktop Chromium and a 390×844 mobile profile. Covers import → resolve/round → CSV download → reload persistence, Axe, and an offline reload.
-- Axe Playwright: zero serious or critical violations on desktop and mobile.
-- Lighthouse 12.8.2 mobile: Performance 100, Accessibility 100, Best Practices 100, SEO 92; LCP 1.5 s, CLS 0, total blocking time 0 ms.
-- Production payload: 28.11 KB JS (10.28 KB gzip), 15.69 KB CSS (4.32 KB gzip), 21 KB mobile AVIF hero. No console errors in Lighthouse or Playwright.
-- `npm audit --audit-level=high`: zero vulnerabilities.
-- Visual review completed on the 1440 px landing page and populated 390 px ledger.
+- **Critical data loss:** restoring `{"version":1,"entries":[{}]}` after importing a row clears the existing IndexedDB store, shows the misleading “not a valid backup” toast, and leaves the product empty after reload. Invalid backup input must never mutate stored data.
+- **High accessibility:** the CSV import, import-another-CSV, and restore-backup inputs are `hidden` within non-focusable labels. They are skipped entirely by Tab, leaving keyboard-only users unable to import or restore data.
+- **Medium contract gap:** rows are grouped by client/project only, not client/project/date as the researched brief requires.
 
-## Run
+## What passed
 
-```sh
-npm install
-npm test
-npm run build
-npm run test:e2e
-```
+- Fresh `npm ci`; `npm test` 8/8; exact `npm run build`; `npm run test:e2e` 6/6 across desktop and 390 px mobile.
+- Live hashes for HTML, app JS/CSS, service worker, and manifest match the fresh `dist/` output exactly.
+- Normal import/review/invoice-reference validation/export, valid backup restore, malformed CSV/JSON rejection, original-row retention, and the 150-row limit work.
+- Live offline reload, worker-update toast, direct legal pages, 390 px no-overflow, visible skip-link focus, privacy request capture, and live Axe (0 serious/critical) pass.
+- Initial JS is 10.28 KB gzip; CSS is 4.32 KB gzip. No console/page errors in the free workflow.
 
-Deploy `dist/` as the static root.
+## Follow-up
 
-## Known gaps / next steps
+1. Validate the complete backup schema before opening a read-write IndexedDB transaction; preserve existing data on every parse/schema/storage failure and add a regression test for it.
+2. Use keyboard-focusable, labelled file inputs/buttons for all import/restore actions and add keyboard E2E coverage.
+3. Add the date level to the review grouping or revise the accepted brief only with explicit product approval.
+4. Re-run `npm ci && npm test && npm run build && npm run test:e2e`, then repeat the failing recovery and keyboard scenarios in `.factory/verification.md`.
 
-- Header recognition covers common Toggl/Clockify/Harvest-style names rather than arbitrary column mapping. Unknown schemas receive a specific missing-header error.
-- Timer, invoice sending, accounting integrations, sync, tax, and rate calculations are intentional v1 non-goals.
-- The factory must register/confirm the `billable-review` paid product and production return URL before launch. No product ID or provider secret is hardcoded here.
+The full evidence, header/cache observations, test commands, and non-blocking findings are in `.factory/verification.md`.
