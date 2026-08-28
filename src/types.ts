@@ -10,6 +10,7 @@ export interface TimeEntry {
   description: string;
   minutes: number;
   roundedMinutes: number;
+  roundingIncrement?: Settings['rounding'];
   billable: boolean;
   status: EntryStatus;
   invoiceRef: string;

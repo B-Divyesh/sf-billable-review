@@ -28,7 +28,7 @@ function shell(content: string, legal = false): string {
       <nav aria-label="Primary"><a href="/privacy">Privacy</a><button class="link-button" data-action="license">${license.valid ? 'Lifetime unlocked' : 'Get lifetime'}</button></nav>
     </header>
     <main id="main" class="${legal ? 'legal-page' : ''}">${content}</main>
-    <footer><p>Private by design. Your time rows stay in this browser.</p><p><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · Generated artwork disclosed in the <a href="#art-note" data-action="art-note">art note</a>.</p></footer>
+    <footer><p>Private by design. Your time rows stay in this browser.</p><nav class="footer-links" aria-label="Legal and artwork"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="#art-note" data-action="art-note">Artwork disclosure</a></nav></footer>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <div id="offline-note" class="offline-note" role="status" hidden>You’re offline. Review and exports still work.</div>
     <div id="modal-root"></div>`;
@@ -110,7 +110,7 @@ function boardView(): string {
     return `<section class="entry-group"><header><div><p>${esc(client)}</p><h2>${esc(project)}</h2><time class="group-date" datetime="${esc(date)}">${esc(dateLabel)}</time></div><div class="group-total"><strong>${hours(list.reduce((sum, entry) => sum + entry.roundedMinutes, 0))}</strong><label class="select-group"><input type="checkbox" data-select-group="${esc(key)}" ${list.every(entry => selected.has(entry.id)) ? 'checked' : ''}> Select group</label></div></header><ul>${groupRows(list)}</ul></section>`;
   }).join('');
   return `<div class="board-heading"><div><p class="eyebrow">LOCAL REVIEW LEDGER</p><h1>What still needs a destination?</h1><p>Imported rows stay intact. Decisions autosave on this device.</p></div><label class="button secondary file-button">Import another CSV<input type="file" data-import accept=".csv,text/csv"></label></div>
-  <section class="ledger-layout" aria-label="Review board">
+  <div class="ledger-layout">
     <aside class="summary-rail"><div class="summary-mark"><span>${percent}%</span><small>reconciled</small></div>
       <dl><div><dt>Open time</dt><dd>${hours(totalMinutes)}</dd></div><div><dt>Needs review</dt><dd>${open.length}</dd></div><div><dt>Stale</dt><dd>${open.filter(isStale).length}</dd></div><div><dt>Uncategorized</dt><dd>${open.filter(isUncategorized).length}</dd></div></dl>
       <button class="text-action" data-action="settings">Rounding: ${settings.rounding ? `${settings.rounding} min up` : 'Exact'}</button><button class="text-action" data-action="backup">Export JSON backup</button><label class="text-action file-button">Restore JSON backup<input type="file" data-restore accept="application/json,.json"></label><button class="text-action danger-text" data-action="erase">Erase local data</button>
@@ -120,7 +120,7 @@ function boardView(): string {
     <div class="results-note" aria-live="polite">Showing ${visible.length} of ${entries.length} rows</div>
     ${groupMarkup || `<div class="no-results"><p class="stamp">CLEAR</p><h2>No rows match this view.</h2><p>Try another filter or search. Your original entries are still saved.</p></div>`}
     <div class="export-bar"><div><strong>Approved line items</strong><span>${entries.filter(entry => ['approved', 'invoiced'].includes(entry.status)).length} ready to export</span></div><button class="button primary" data-action="export">Export approved CSV</button></div></div>
-  </section>`;
+  </div>`;
 }
 
 function render(): void {
@@ -189,16 +189,21 @@ function openResolve(ids: string[]): void {
   const targets = entries.filter(entry => ids.includes(entry.id));
   if (!targets.length) return;
   const one = targets.length === 1 ? targets[0] : null;
+  const initialStatus: Exclude<EntryStatus, 'review'> = one && one.status !== 'review' ? one.status : 'approved';
+  const initialReference = one ? (initialStatus === 'invoiced' ? one.invoiceRef : initialStatus === 'written_off' ? one.resolutionNote : '') : '';
+  const increments: Settings['rounding'][] = [0, 6, 15, 30];
+  const savedIncrement = one?.roundingIncrement ?? (one ? increments.find(increment => roundMinutes(one.minutes, increment) === one.roundedMinutes) : undefined);
+  const initialIncrement = savedIncrement ?? settings.rounding;
   const dialog = openModal(`Resolve ${targets.length === 1 ? 'this row' : `${targets.length} rows`}`, `<form id="resolve-form">
     <p class="modal-intro">Choose a clear outcome. Nothing is sent to an accounting system.</p>
     ${one ? `<fieldset><legend>Category</legend><label>Client<input name="client" value="${esc(one.client)}"></label><label>Project<input name="project" value="${esc(one.project)}"></label></fieldset>` : ''}
-    <fieldset><legend>Outcome</legend><div class="choice-grid"><label><input type="radio" name="status" value="approved" checked><span><strong>Approve</strong><small>Ready for line-item export</small></span></label><label><input type="radio" name="status" value="invoiced"><span><strong>Link invoice</strong><small>Reconciled with a reference</small></span></label><label><input type="radio" name="status" value="written_off"><span><strong>Write off</strong><small>Reconciled with a reason</small></span></label></div></fieldset>
-    <label id="reference-label">Invoice reference or write-off reason <span>(required when linking or writing off)</span><input name="reference" autocomplete="off"></label>
+    <fieldset><legend>Outcome</legend><div class="choice-grid"><label><input type="radio" name="status" value="approved" ${initialStatus === 'approved' ? 'checked' : ''}><span><strong>Approve</strong><small>Ready for line-item export</small></span></label><label><input type="radio" name="status" value="invoiced" ${initialStatus === 'invoiced' ? 'checked' : ''}><span><strong>Link invoice</strong><small>Reconciled with a reference</small></span></label><label><input type="radio" name="status" value="written_off" ${initialStatus === 'written_off' ? 'checked' : ''}><span><strong>Write off</strong><small>Reconciled with a reason</small></span></label></div></fieldset>
+    <label id="reference-label">Invoice reference or write-off reason <span>(required when linking or writing off)</span><input name="reference" autocomplete="off" value="${esc(initialReference)}"></label>
     <label>Rounding<select name="rounding"><option value="0">Exact time</option><option value="6">Up to 6 minutes</option><option value="15">Up to 15 minutes</option><option value="30">Up to 30 minutes</option></select></label>
     <div class="modal-actions"><button type="button" class="button ghost" data-close>Cancel</button><button class="button primary" type="submit">Save outcome</button></div><p class="form-error" role="alert" hidden></p>
   </form>`);
   const form = dialog.querySelector<HTMLFormElement>('#resolve-form')!;
-  (form.elements.namedItem('rounding') as HTMLSelectElement).value = String(settings.rounding);
+  (form.elements.namedItem('rounding') as HTMLSelectElement).value = String(initialIncrement);
   form.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => dialog.close()));
   form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -208,7 +213,7 @@ function openResolve(ids: string[]): void {
     }
     const increment = Number(data.get('rounding'));
     targets.forEach(entry => {
-      entry.status = status; entry.roundedMinutes = roundMinutes(entry.minutes, increment);
+      entry.status = status; entry.roundedMinutes = roundMinutes(entry.minutes, increment); entry.roundingIncrement = increment as Settings['rounding'];
       entry.invoiceRef = status === 'invoiced' ? reference : '';
       entry.resolutionNote = status === 'written_off' ? reference : '';
       if (one) { entry.client = String(data.get('client') || '').trim(); entry.project = String(data.get('project') || '').trim(); }
@@ -259,9 +264,13 @@ function bindView(): void {
       // has committed successfully.
       await replaceEntries(backup.entries);
       entries = backup.entries;
+      if (backup.settings) {
+        Object.assign(settings, backup.settings);
+        localStorage.setItem('br:settings', JSON.stringify(settings));
+      }
       selected.clear();
       render();
-      showToast(`${entries.length} rows restored from backup.`);
+      showToast(`${entries.length} ${entries.length === 1 ? 'row' : 'rows'} restored from backup.`);
     } catch {
       showToast('That is not a valid Billable Review backup.');
     } finally {
@@ -285,6 +294,7 @@ async function registerServiceWorker(): Promise<void> {
 
 async function init(): Promise<void> {
   captureLicense();
+  license = getLicense();
   entries = await getEntries().catch(() => []);
   render();
   void registerServiceWorker();

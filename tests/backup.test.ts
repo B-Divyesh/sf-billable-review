@@ -12,6 +12,11 @@ describe('backup validation', () => {
     expect(parseBackup(JSON.stringify({ version: 1, entries: [validEntry] }))).toMatchObject({ version: 1, entries: [validEntry] });
   });
 
+  it('accepts saved settings and a row-specific rounding increment', () => {
+    const backup = { version: 1, entries: [{ ...validEntry, roundingIncrement: 15 }], settings: { rounding: 30, staleDays: 1 } };
+    expect(parseBackup(JSON.stringify(backup))).toMatchObject(backup);
+  });
+
   it('rejects an incomplete entry before any storage replacement can begin', () => {
     expect(() => parseBackup('{"version":1,"entries":[{}]}')).toThrow('That is not a valid Billable Review backup.');
   });

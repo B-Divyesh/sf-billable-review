@@ -46,6 +46,8 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1.1; }
 main { min-height: 68vh; }
 footer { display: flex; width: min(1280px, calc(100% - 48px)); margin: 72px auto 0; padding: 28px 0 calc(28px + env(safe-area-inset-bottom)); justify-content: space-between; gap: 24px; border-top: 1px solid var(--rule); color: var(--ink-soft); font-size: 14px; }
 footer p { margin: 0; }
+.footer-links { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.footer-links a { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
 
 .eyebrow { margin-bottom: 14px; color: var(--coral-deep); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 800; letter-spacing: .09em; }
 .lede { max-width: 62ch; color: var(--ink-soft); font-size: clamp(1.08rem, 2vw, 1.28rem); line-height: 1.6; }
@@ -207,7 +209,7 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
   .price-strip { display: block; margin: 64px auto; padding: 30px 24px; }
   .price-strip .button { width: 100%; margin-top: 20px; }
   footer { display: block; margin-top: 56px; }
-  footer p + p { margin-top: 12px; }
+  .footer-links { margin-top: 12px; }
   .board-heading { display: block; margin-top: 32px; }
   .board-heading .button { width: 100%; margin-top: 20px; }
   .summary-rail { display: block; }

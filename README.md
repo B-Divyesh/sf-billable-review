@@ -21,13 +21,16 @@ Requires Node.js 20 or newer.
 npm install
 npm run dev
 npm test
+npm run check
 npm run build
 npm run test:e2e
 ```
 
 `npm run build` is the exact production build command. It type-checks and writes the deployable static site to `dist/`, including `dist/index.html`, direct `/privacy` and `/terms` entry points, the web app manifest, icons, and offline service worker.
 
-Playwright is pinned to 1.58.2. The browser tests cover desktop Chromium, a 390 px mobile viewport, CSV import, review/export, persisted IndexedDB state, Axe serious/critical findings, and an offline reload.
+Playwright is pinned to 1.58.2. The browser tests cover desktop Chromium, a 390 px mobile viewport, CSV import and date rejection, outcome editing, backup/settings restore, license callbacks, keyboard access, all Axe findings, persisted IndexedDB state, and an offline reload.
+
+Production JavaScript and CSS filenames are content-hashed. The included Azure Static Web Apps configuration applies immutable asset caching, the web-manifest MIME type, CSP, Permissions Policy, and other baseline response headers.
 
 ## Deploy
 

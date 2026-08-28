@@ -53,11 +53,21 @@ export function parseDuration(value: string, header = ''): number {
   return Math.round(numeric * 60);
 }
 
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+}
+
 function normalizedDate(value: string): string {
   const iso = value.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (iso) return iso[1];
+  if (iso) return isCalendarDate(iso[1]) ? iso[1] : '';
   const date = new Date(value);
   return Number.isNaN(date.valueOf()) ? '' : date.toISOString().slice(0, 10);
+}
+
+function rowList(rows: number[]): string {
+  return rows.length === 1 ? String(rows[0]) : `${rows.slice(0, -1).join(', ')} and ${rows.at(-1)}`;
 }
 
 function isBillable(value: string): boolean {
@@ -82,11 +92,18 @@ export function importCsv(text: string, fileName = 'time-export.csv', now = new 
   }
   const batchId = `${now.valueOf()}-${fileName.replace(/[^a-z0-9]/gi, '-').slice(0, 40)}`;
   let skipped = 0;
+  const invalidDateRows: number[] = [];
+  const invalidDurationRows: number[] = [];
   const entries: TimeEntry[] = [];
   rows.slice(1).forEach((values, index) => {
     const date = normalizedDate(values[indexes.date] || '');
     const minutes = parseDuration(values[indexes.duration] || '', headers[indexes.duration]);
-    if (!date || minutes <= 0) { skipped += 1; return; }
+    if (!date || minutes <= 0) {
+      skipped += 1;
+      if (!date) invalidDateRows.push(index + 2);
+      if (minutes <= 0) invalidDurationRows.push(index + 2);
+      return;
+    }
     const original = Object.fromEntries(headers.map((header, column) => [header, values[column] || '']));
     const billable = indexes.billable < 0 || isBillable(values[indexes.billable] || '');
     entries.push({
@@ -99,6 +116,7 @@ export function importCsv(text: string, fileName = 'time-export.csv', now = new 
       description: indexes.description >= 0 ? values[indexes.description] || '' : '',
       minutes,
       roundedMinutes: minutes,
+      roundingIncrement: 0,
       billable,
       status: billable ? 'review' : 'written_off',
       invoiceRef: '',
@@ -106,11 +124,18 @@ export function importCsv(text: string, fileName = 'time-export.csv', now = new 
       original
     });
   });
-  if (!entries.length) throw new Error('No valid time rows were found. Check that dates and durations are filled in.');
+  if (!entries.length) {
+    const details = [
+      invalidDateRows.length ? `dates on CSV ${invalidDateRows.length === 1 ? 'row' : 'rows'} ${rowList(invalidDateRows)}` : '',
+      invalidDurationRows.length ? `durations on CSV ${invalidDurationRows.length === 1 ? 'row' : 'rows'} ${rowList(invalidDurationRows)}` : ''
+    ].filter(Boolean).join(' and ');
+    throw new Error(`No valid time rows were found. Check ${details || 'that dates and durations are filled in'} and try again.`);
+  }
   const warnings: string[] = [];
   if (indexes.client < 0) warnings.push('No client column was found; entries need client review.');
   if (indexes.project < 0) warnings.push('No project column was found; entries need project review.');
-  if (skipped) warnings.push(`${skipped} invalid or zero-duration ${skipped === 1 ? 'row was' : 'rows were'} skipped.`);
+  if (invalidDateRows.length) warnings.push(`CSV ${invalidDateRows.length === 1 ? 'row' : 'rows'} ${rowList(invalidDateRows)} ${invalidDateRows.length === 1 ? 'was' : 'were'} skipped because the ${invalidDateRows.length === 1 ? 'date is not a real calendar date' : 'dates are not real calendar dates'}.`);
+  if (invalidDurationRows.length) warnings.push(`CSV ${invalidDurationRows.length === 1 ? 'row' : 'rows'} ${rowList(invalidDurationRows)} ${invalidDurationRows.length === 1 ? 'has' : 'have'} an empty or zero duration.`);
   return { entries, headers, skipped, warnings };
 }
 

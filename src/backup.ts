@@ -30,6 +30,7 @@ function isEntry(value: unknown): value is TimeEntry {
     isDate(value.date) && typeof value.client === 'string' && typeof value.project === 'string' &&
     typeof value.description === 'string' && typeof value.minutes === 'number' && Number.isFinite(value.minutes) && value.minutes >= 0 &&
     typeof value.roundedMinutes === 'number' && Number.isFinite(value.roundedMinutes) && value.roundedMinutes >= 0 && typeof value.billable === 'boolean' &&
+    (value.roundingIncrement === undefined || (typeof value.roundingIncrement === 'number' && roundingValues.includes(value.roundingIncrement as Settings['rounding']))) &&
     typeof value.status === 'string' && statuses.includes(value.status as EntryStatus) &&
     typeof value.invoiceRef === 'string' && typeof value.resolutionNote === 'string' && isStringMap(value.original);
 }

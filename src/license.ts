@@ -5,20 +5,22 @@ const KEY = `sb_license:${SLUG}`;
 const VERDICT_KEY = `${KEY}:verdict`;
 export const BUY_URL = `https://api.sociobot.in/api/v1/products/${SLUG}/checkout`;
 
-export function captureLicense(): void {
+export function captureLicense(): boolean {
   const url = new URL(location.href);
-  const token = url.searchParams.get('license');
-  if (!token) return;
+  const token = url.searchParams.get('license')?.trim();
+  if (!token) return false;
+  if (localStorage.getItem(KEY) !== token) localStorage.removeItem(VERDICT_KEY);
   localStorage.setItem(KEY, token);
   url.searchParams.delete('license');
   history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  return true;
 }
 
 export function getLicense(): LicenseState {
   const token = localStorage.getItem(KEY) || '';
   try {
     const verdict = JSON.parse(localStorage.getItem(VERDICT_KEY) || '{}');
-    return { token, valid: Boolean(token && verdict.valid), checkedAt: Number(verdict.checkedAt) || 0 };
+    return { token, valid: Boolean(token && verdict.token === token && verdict.valid), checkedAt: verdict.token === token ? Number(verdict.checkedAt) || 0 : 0 };
   } catch { return { token, valid: false, checkedAt: 0 }; }
 }
 

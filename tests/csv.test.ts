@@ -24,6 +24,18 @@ describe('CSV parser', () => {
     expect(result.skipped).toBe(1);
   });
 
+  it('rejects impossible ISO calendar dates with CSV row guidance', () => {
+    const csv = 'Date,Client,Project,Hours\n2026-02-30,Acme,Site,1\n2026-99-99,Acme,Site,1';
+    expect(() => importCsv(csv)).toThrow('Check dates on CSV rows 2 and 3');
+  });
+
+  it('keeps a valid leap-day row while skipping an impossible date', () => {
+    const csv = 'Date,Client,Project,Hours\n2024-02-29,Acme,Site,1\n2026-02-29,Acme,Site,1';
+    const result = importCsv(csv);
+    expect(result.entries.map(entry => entry.date)).toEqual(['2024-02-29']);
+    expect(result.warnings).toContain('CSV row 3 was skipped because the date is not a real calendar date.');
+  });
+
   it('keeps non-billable source rows out of the open ledger', () => {
     const result = importCsv('Date,Hours,Billable\n2026-08-01,1,No');
     expect(result.entries[0]).toMatchObject({ billable: false, status: 'written_off', resolutionNote: 'Marked non-billable in source CSV' });

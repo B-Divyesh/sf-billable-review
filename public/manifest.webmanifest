@@ -2,7 +2,7 @@
   "name": "Billable Review",
   "short_name": "Billable",
   "description": "Offline review for unbilled time exports.",
-  "start_url": "/?v=1",
+  "start_url": "/?v=2",
   "scope": "/",
   "display": "standalone",
   "background_color": "#F3EBDD",

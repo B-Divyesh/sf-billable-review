@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { readFile } from 'node:fs/promises';
 
 async function tabTo(page: import('@playwright/test').Page, target: import('@playwright/test').Locator): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -30,13 +31,127 @@ test('imports, resolves, persists and exports time rows', async ({ page }) => {
   await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
 });
 
-test('has no serious accessibility violations', async ({ page }) => {
+test('has no automated accessibility violations', async ({ page }) => {
   await page.goto('/');
   const emptyResults = await new AxeBuilder({ page: page as never }).analyze();
-  expect(emptyResults.violations.filter(item => ['serious', 'critical'].includes(item.impact || ''))).toEqual([]);
+  expect(emptyResults.violations).toEqual([]);
   await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
   const boardResults = await new AxeBuilder({ page: page as never }).analyze();
-  expect(boardResults.violations.filter(item => ['serious', 'critical'].includes(item.impact || ''))).toEqual([]);
+  expect(boardResults.violations).toEqual([]);
+});
+
+test('verifies and unlocks a checkout-return license without a reload', async ({ page }) => {
+  let verificationCalls = 0;
+  await page.route('https://api.sociobot.in/api/v1/products/billable-review/verify?license=qa-valid-token', async route => {
+    verificationCalls += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true, reason: 'ok' }) });
+  });
+  await page.goto('/?license=qa-valid-token');
+  await expect(page.getByRole('button', { name: 'Lifetime unlocked' })).toBeVisible();
+  expect(verificationCalls).toBe(1);
+  expect(new URL(page.url()).searchParams.has('license')).toBe(false);
+  expect(await page.evaluate(() => localStorage.getItem('sb_license:billable-review'))).toBe('qa-valid-token');
+});
+
+test('reopens invoiced and written-off rows with their saved outcomes', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
+
+  await page.getByRole('button', { name: /Review Layout review/ }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Link invoice').check();
+  await dialog.getByLabel(/Invoice reference or write-off reason/).fill('INV-42');
+  await dialog.getByLabel('Rounding').selectOption('15');
+  await dialog.getByRole('button', { name: 'Save outcome' }).click();
+
+  await page.getByRole('button', { name: 'Reconciled' }).click();
+  await page.getByRole('button', { name: /Review Layout review/ }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Link invoice')).toBeChecked();
+  await expect(dialog.getByLabel(/Invoice reference or write-off reason/)).toHaveValue('INV-42');
+  await expect(dialog.getByLabel('Rounding')).toHaveValue('15');
+  await dialog.getByRole('button', { name: 'Save outcome' }).click();
+
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: /Review Client call/ }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Write off').check();
+  await dialog.getByLabel(/Invoice reference or write-off reason/).fill('Outside scope');
+  await dialog.getByLabel('Rounding').selectOption('30');
+  await dialog.getByRole('button', { name: 'Save outcome' }).click();
+
+  await page.getByRole('button', { name: 'Reconciled' }).click();
+  await page.getByRole('button', { name: /Review Client call/ }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Write off')).toBeChecked();
+  await expect(dialog.getByLabel(/Invoice reference or write-off reason/)).toHaveValue('Outside scope');
+  await expect(dialog.getByLabel('Rounding')).toHaveValue('30');
+  await dialog.getByRole('button', { name: 'Save outcome' }).click();
+
+  const stored = await page.evaluate(async () => new Promise<Record<string, unknown>[]>((resolve, reject) => {
+    const request = indexedDB.open('billable-review');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const all = request.result.transaction('entries').objectStore('entries').getAll();
+      all.onerror = () => reject(all.error);
+      all.onsuccess = () => resolve(all.result);
+    };
+  }));
+  expect(stored.find(entry => entry.description === 'Layout review')).toMatchObject({ status: 'invoiced', invoiceRef: 'INV-42', roundedMinutes: 75, roundingIncrement: 15 });
+  expect(stored.find(entry => entry.description === 'Client call')).toMatchObject({ status: 'written_off', resolutionNote: 'Outside scope', roundedMinutes: 30, roundingIncrement: 30 });
+});
+
+test('rejects impossible dates before storage and invoice export', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/impossible-dates.csv');
+  await expect(page.getByRole('status')).toContainText('CSV rows 2 and 3 were skipped because the dates are not real calendar dates.');
+  await expect(page.locator('.entry-row')).toHaveCount(1);
+  await expect(page.locator('time.group-date[datetime="2026-02-28"]')).toBeVisible();
+
+  await page.getByRole('button', { name: /Review Valid day/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save outcome' }).click();
+  const downloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export approved CSV' }).click();
+  const download = await downloadEvent;
+  const exportPath = await download.path();
+  expect(exportPath).not.toBeNull();
+  const exported = await readFile(exportPath!, 'utf8');
+  expect(exported).toContain('2026-02-28');
+  expect(exported).not.toContain('2026-02-30');
+  expect(exported).not.toContain('2026-99-99');
+});
+
+test('restores exported review settings with entry data', async ({ page }) => {
+  await page.goto('/');
+  const backup = {
+    version: 1,
+    entries: [{
+      id: 'restored-1', batchId: 'backup-1', importedAt: '2026-08-28T00:00:00.000Z', date: '2026-08-01',
+      client: 'Acme', project: 'Site', description: 'Restored work', minutes: 60, roundedMinutes: 60,
+      roundingIncrement: 0, billable: true, status: 'review', invoiceRef: '', resolutionNote: '', original: { Date: '2026-08-01' }
+    }],
+    settings: { rounding: 30, staleDays: 1 }
+  };
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
+  await page.getByLabel('Restore JSON backup').setInputFiles({ name: 'settings-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+  await expect(page.getByRole('status')).toContainText('1 row restored from backup.');
+  await page.getByRole('button', { name: 'Rounding: 30 min up' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Default rounding')).toHaveValue('30');
+  await expect(dialog.getByLabel('Flag entries stale after')).toHaveValue('1');
+});
+
+test('gives footer links full-size touch targets', async ({ page }) => {
+  await page.goto('/');
+  const boxes = await page.locator('.footer-links a').evaluateAll(links => links.map(link => {
+    const rect = link.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }));
+  expect(boxes).toHaveLength(3);
+  for (const box of boxes) {
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
 });
 
 test('makes no third-party requests in the local review workflow', async ({ page }) => {

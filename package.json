@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build && node scripts/static-routes.mjs",
+    "check": "tsc --noEmit",
+    "build": "npm run check && vite build && node scripts/build-service-worker.mjs && node scripts/static-routes.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
     "@playwright/test": "1.58.2",
+    "@types/node": "22.18.3",
     "sharp": "^0.35.4",
     "typescript": "^5.9.2",
     "vite": "^7.1.3",
