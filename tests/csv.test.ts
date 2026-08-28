@@ -1,0 +1,47 @@
+import { describe, expect, it } from 'vitest';
+import { csvEscape, importCsv, parseCsv, parseDuration, roundMinutes } from '../src/csv';
+
+describe('CSV parser', () => {
+  it('parses quoted commas and escaped quotes', () => {
+    expect(parseCsv('Date,Description\n2026-08-01,"Call, then ""notes"""')).toEqual([
+      ['Date', 'Description'],
+      ['2026-08-01', 'Call, then "notes"']
+    ]);
+  });
+
+  it('recognizes Toggl-style columns and preserves source values', () => {
+    const csv = 'Start date,Client,Project,Description,Duration,Billable\n2026-07-01,Northstar,Website,"Planning, kickoff",01:30:00,Yes';
+    const result = importCsv(csv, 'toggl.csv', new Date('2026-08-28T00:00:00Z'));
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]).toMatchObject({ client: 'Northstar', project: 'Website', minutes: 90, billable: true });
+    expect(result.entries[0].original.Description).toBe('Planning, kickoff');
+  });
+
+  it('recognizes decimal hours and skips unusable rows', () => {
+    const csv = 'Date,Customer,Task,Hours\n2026-08-01,Acme,Design,1.25\nbad,Acme,Admin,0';
+    const result = importCsv(csv);
+    expect(result.entries[0].minutes).toBe(75);
+    expect(result.skipped).toBe(1);
+  });
+
+  it('explains missing required columns', () => {
+    expect(() => importCsv('Client,Notes\nAcme,Work')).toThrow(/date and duration/);
+  });
+});
+
+describe('review math and export', () => {
+  it('rounds upward explicitly', () => {
+    expect(roundMinutes(61, 15)).toBe(75);
+    expect(roundMinutes(61, 0)).toBe(61);
+  });
+
+  it('normalizes duration forms', () => {
+    expect(parseDuration('01:30:30')).toBe(91);
+    expect(parseDuration('1.5', 'Duration (h)')).toBe(90);
+    expect(parseDuration('3600', 'Duration seconds')).toBe(60);
+  });
+
+  it('escapes exported values safely', () => {
+    expect(csvEscape('Planning, "round 2"')).toBe('"Planning, ""round 2"""');
+  });
+});

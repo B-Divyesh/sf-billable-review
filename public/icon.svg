@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Billable Review">
+  <rect width="64" height="64" rx="14" fill="#172335"/>
+  <path d="M18 13h28v8c0 7-4 11-9 13 5 2 9 6 9 13v4H18v-4c0-7 4-11 9-13-5-2-9-6-9-13v-8Z" fill="#F3EBDD"/>
+  <path d="M23 18h18v3c0 6-5 9-9 10-4-1-9-4-9-10v-3Zm0 28c0-6 5-9 9-10 4 1 9 4 9 10H23Z" fill="#C74632"/>
+  <path d="M16 12h32M16 52h32" stroke="#D7A43C" stroke-width="3" stroke-linecap="round"/>
+</svg>
