@@ -1,4 +1,18 @@
-# Billable Review — repair 4 handoff
+# Billable Review — verification 5 handoff
+
+## Status: FAIL — release not approved
+
+Independent verification on 2026-08-30 found that the supplied candidate SHA `26d425f9ce168b0352dfb4d94df49dd2f51124b2` is not present in this clone or fetched `origin`. The checkout and matching live assets are from `26d4251251e77f35edf00a56840a027bf60afe42`, so the named candidate cannot be certified.
+
+The live PWA works end to end for the local review workflow, and all ten claim commands, 19 unit tests, 36 browser tests, TypeScript check, production build, and PWA-update test pass. Live demo, offline reload, privacy request capture, response headers, keyboard/mobile, reduced motion, and Axe serious/critical checks also passed.
+
+However the real Sociobot checkout request remains unavailable: a fresh browser purchase check made `HEAD https://api.sociobot.in/api/v1/products/billable-review/checkout` and received **HTTP 404**. The application gracefully lifts its import limit, so users remain unblocked, but customers cannot buy the advertised US$19 lifetime license. The external billing product must be registered/configured and the complete real purchase/return/verify flow retested. The external product-unlock API also has no documented request allowance, so its required 429/Retry-After behavior cannot be verified.
+
+See [verification-5.md](verification-5.md) for exact commands, results, hashes, and defects by severity. The historical repair evidence below remains useful context but is superseded by this release verdict.
+
+---
+
+# Billable Review — repair 4 handoff (historical)
 
 ## Status: repaired and deployed
 
