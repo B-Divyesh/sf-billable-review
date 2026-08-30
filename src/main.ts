@@ -273,7 +273,38 @@ function openSettings(): void {
 function openLicense(notice = ''): void {
   const dialog = openModal(license.valid ? 'Lifetime is active' : 'Get unlimited imports', `<div class="license-panel">${notice ? `<p class="notice">${esc(notice)}</p>` : ''}<p class="price"><span>$19</span> once</p><p>Import more than 150 CSV rows on this device. No subscription, account, or cloud upload.</p><ul><li>Unlimited time-entry imports</li><li>All exception, reconciliation, backup, and export tools</li><li>Works offline after first load</li></ul>${license.valid ? '<p class="success-note">✓ This browser has a verified lifetime license.</p>' : `<a class="button primary full" href="${BUY_URL}">Buy lifetime — $19</a><p class="merchant">Checkout is handled by Sociobot/Dodo, the merchant of record. License checks run on return, then at most once per day.</p><form id="license-form"><label>Have a license? Paste it here<input name="token" autocomplete="off" required></label><button class="button secondary" type="submit">Verify and restore</button><p class="form-error" role="alert" hidden></p></form>`}<p class="legal-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></div>`);
   const form = dialog.querySelector<HTMLFormElement>('#license-form');
-  form?.addEventListener('submit', async event => { event.preventDefault(); const token = String(new FormData(form).get('token') || '').trim(); if (!token) return; saveLicense(token); const button = form.querySelector('button')!; button.textContent = 'Verifying…'; button.disabled = true; license = await verifyLicense(true); if (license.valid) { dialog.close(); render(); showToast('Lifetime license restored.'); } else { const error = form.querySelector<HTMLElement>('.form-error')!; error.textContent = navigator.onLine ? 'That license could not be verified. Check the token and try again.' : 'You’re offline. Reconnect once to verify this license.'; error.hidden = false; button.textContent = 'Verify and restore'; button.disabled = false; } });
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const token = String(new FormData(form).get('token') || '').trim();
+    if (!token) return;
+    saveLicense(token);
+    const button = form.querySelector<HTMLButtonElement>('button')!;
+    const error = form.querySelector<HTMLElement>('.form-error')!;
+    error.hidden = true;
+    button.textContent = 'Verifying…';
+    button.disabled = true;
+    const checked = await verifyLicense({
+      force: true,
+      onRateLimited: seconds => {
+        button.textContent = `Retrying in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}…`;
+        error.textContent = `License checks are busy. Your free ledger remains usable while this retries.`;
+        error.hidden = false;
+      }
+    });
+    license = checked.state;
+    if (license.valid) {
+      dialog.close();
+      render();
+      showToast('Lifetime license restored.');
+      return;
+    }
+    if (checked.outcome === 'invalid') error.textContent = 'That license is not active. Check the token and try again.';
+    else if (checked.outcome === 'rate_limited') error.textContent = 'License checks are still busy. Your free ledger remains usable. Wait a moment and try again.';
+    else error.textContent = navigator.onLine ? 'The license service could not be reached. Your free ledger remains usable. Try again later.' : 'You’re offline. Your free ledger remains usable. Reconnect to verify this license.';
+    error.hidden = false;
+    button.textContent = 'Verify and restore';
+    button.disabled = false;
+  });
 }
 
 function artNote(): void { openModal('About the artwork', '<div class="art-note"><img src="/assets/hero-ledger-960.webp" width="480" height="320" alt="Paper time slips crossing from a clock island into a ledger"><p>This illustration was generated for Billable Review with the Param Factory image model on 28 August 2026. It contains no stock art, people, logos, or product claims.</p></div>', true); }
@@ -336,15 +367,26 @@ async function registerServiceWorker(): Promise<void> {
 }
 
 async function init(): Promise<void> {
+  let capturedLicense = false;
   if (!DEMO_MODE) {
-    captureLicense();
+    capturedLicense = captureLicense();
     license = getLicense();
   }
   entries = await getEntries().catch(() => []);
   if (DEMO_MODE && !entries.length) entries = await sampleEntries();
   render();
   void registerServiceWorker();
-  if (!DEMO_MODE && license.token) { const verified = await verifyLicense(); if (verified.valid !== license.valid) { license = verified; render(); if (!license.valid) showToast('Your license is no longer active. Local data and exports are still available.'); } else license = verified; }
+  if (!DEMO_MODE && license.token) {
+    const before = license;
+    const checked = await verifyLicense({
+      onRateLimited: seconds => showToast(`License checks are busy. Retrying in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}. Your free ledger remains usable.`)
+    });
+    license = checked.state;
+    if (license.valid !== before.valid) render();
+    if (checked.outcome === 'invalid' && (before.valid || capturedLicense)) showToast('That license is no longer active. Local data and exports are still available.');
+    else if (checked.outcome === 'rate_limited') showToast('License checks are still busy. Your free ledger remains usable. Try again from Get lifetime.');
+    else if (checked.outcome === 'unavailable' && capturedLicense) showToast('The license service could not be reached. Your free ledger remains usable. Try again from Get lifetime.');
+  }
 }
 
 async function sampleEntries(): Promise<TimeEntry[]> {

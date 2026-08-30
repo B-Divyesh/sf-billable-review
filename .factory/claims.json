@@ -68,5 +68,12 @@
     "where": "pricing, license panel, README",
     "test": "npm run test:e2e -- --grep @claim:checkout-boundary",
     "sandbox": "reproduce the verifier's exact checkout 404, seed its former unavailable cache, and assert the direct URL is exact with only 150 of 151 rows stored"
+  },
+  {
+    "id": "billing-saturation",
+    "claim": "License checks follow Retry-After when the shared gateway returns 429, while the free review workflow remains usable.",
+    "where": "README, billing contract",
+    "test": "npm run test:e2e -- --grep @claim:billing-saturation",
+    "sandbox": "fresh browser context; recorded 429 with Retry-After then valid 200; import and display a free CSV row during the wait; assert delayed retry and unlock"
   }
 ]

@@ -83,6 +83,37 @@ test('@claim:lifetime-license verifies and unlocks a checkout-return license wit
   await expect(page.locator('.entry-row')).toHaveCount(151);
 });
 
+test('@claim:billing-saturation waits for Retry-After and keeps the free workflow usable', async ({ page }) => {
+  const requestTimes: number[] = [];
+  await page.route('https://api.sociobot.in/api/v1/products/billable-review/verify?license=qa-saturated-token', async route => {
+    requestTimes.push(Date.now());
+    if (requestTimes.length === 1) {
+      await route.fulfill({
+        status: 429,
+        headers: { 'Retry-After': '1', 'Access-Control-Expose-Headers': 'Retry-After' },
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'rate_limited' })
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ valid: true, reason: 'ok', expires_at: null })
+    });
+  });
+
+  await page.goto('/?license=qa-saturated-token');
+  await expect(page.getByRole('status')).toContainText('License checks are busy. Retrying in 1 second.');
+
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
+  await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lifetime unlocked' })).toBeVisible();
+
+  expect(requestTimes).toHaveLength(2);
+  expect(requestTimes[1] - requestTimes[0]).toBeGreaterThanOrEqual(900);
+});
+
 test('@claim:checkout-boundary keeps the import cap when checkout returns the former 404', async ({ page }) => {
   let checkoutChecks = 0;
   await page.route('https://api.sociobot.in/api/v1/products/billable-review/checkout', async route => {

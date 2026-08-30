@@ -44,7 +44,7 @@ Publish the contents of `dist/` as a static site at `https://billable-review.soc
 
 The checkout and license verification contract uses `https://api.sociobot.in/api/v1/products/billable-review/...`; no payment provider is embedded in this application. The buy link opens the hosted checkout directly. A returned license is checked immediately, then automatically at most once per 24 hours. A manual restore makes one check per submission.
 
-The Sociobot verification API allows 30 requests per client burst. Additional requests receive HTTP 429 with `Retry-After`; the observed value on 30 August 2026 was three seconds. This app stays well below that allowance during normal use. The endpoints, data sent, and live test are recorded in [`.factory/billing.md`](.factory/billing.md).
+The shared Sociobot gateway normally returns HTTP 200 for a license check. During saturation it returns HTTP 429 with `Retry-After`. The app waits and retries once while the free review workflow remains usable. It does not assume a fixed request allowance. The endpoints, data sent, and live test are recorded in [`.factory/billing.md`](.factory/billing.md).
 
 ## Privacy and design
 
