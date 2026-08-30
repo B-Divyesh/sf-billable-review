@@ -45,6 +45,17 @@ test('has no automated accessibility violations', async ({ page }) => {
   expect(demoResults.violations).toEqual([]);
 });
 
+test('shows the immutable build identity emitted with the artifact', async ({ page }) => {
+  await page.goto('/');
+  const identity = await page.evaluate(async () => {
+    const response = await fetch('/build.json');
+    return response.json() as Promise<{ product: string; commit: string; dirty: boolean }>;
+  });
+  expect(identity.product).toBe('billable-review');
+  expect(identity.commit).toMatch(/^[0-9a-f]{40}$/);
+  await expect(page.locator('[data-build-commit]')).toHaveText(identity.commit.slice(0, 7));
+});
+
 test('@claim:lifetime-license verifies and unlocks a checkout-return license without a reload', async ({ page }) => {
   let verificationCalls = 0;
   await page.route('https://api.sociobot.in/api/v1/products/billable-review/verify?license=qa-valid-token', async route => {
@@ -58,6 +69,10 @@ test('@claim:lifetime-license verifies and unlocks a checkout-return license wit
   expect(new URL(page.url()).searchParams.has('license')).toBe(false);
   expect(await page.evaluate(() => localStorage.getItem('sb_license:billable-review'))).toBe('qa-valid-token');
 
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Lifetime unlocked' })).toBeVisible();
+  expect(verificationCalls).toBe(1);
+
   const rows = Array.from({ length: 151 }, (_, index) =>
     `2026-08-01,Acme,Licensed,Licensed row ${index + 1},1,true`
   );
@@ -68,46 +83,45 @@ test('@claim:lifetime-license verifies and unlocks a checkout-return license wit
   await expect(page.locator('.entry-row')).toHaveCount(151);
 });
 
-test('@claim:checkout-outage-recovery lifts the import cap when production checkout returns 404', async ({ page }) => {
+test('@claim:checkout-boundary keeps the import cap when checkout returns the former 404', async ({ page }) => {
   let checkoutChecks = 0;
   await page.route('https://api.sociobot.in/api/v1/products/billable-review/checkout', async route => {
-    expect(route.request().method()).toBe('HEAD');
     checkoutChecks += 1;
     await route.fulfill({
       status: 404,
+      headers: { 'access-control-allow-origin': '*' },
       contentType: 'application/json',
       body: JSON.stringify({ error: 'enabled factory product', status: 404 })
     });
   });
   await page.goto('/');
-
-  await page.getByRole('button', { name: 'Check purchase — $19' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Checkout is unavailable');
-  await expect(page.getByRole('dialog')).toContainText('Imports are uncapped');
-  expect(page.url()).toBe('http://127.0.0.1:4173/');
-  await page.getByRole('button', { name: 'Close dialog' }).click();
+  const formerFailureStatus = await page.evaluate(async checkoutUrl =>
+    (await fetch(checkoutUrl, { method: 'HEAD' })).status,
+  'https://api.sociobot.in/api/v1/products/billable-review/checkout');
+  expect(formerFailureStatus).toBe(404);
+  await page.evaluate(() => sessionStorage.setItem('sb_license:billable-review:checkout', 'unavailable'));
+  await expect(page.getByRole('link', { name: 'Buy lifetime — $19' })).toHaveAttribute(
+    'href',
+    'https://api.sociobot.in/api/v1/products/billable-review/checkout'
+  );
 
   const rows = Array.from({ length: 151 }, (_, index) =>
-    `2026-08-01,Acme,Recovery,Recovered row ${index + 1},1,true`
+    `2026-08-01,Acme,Boundary,Boundary row ${index + 1},1,true`
   );
   const csv = ['Date,Client,Project,Description,Hours,Billable', ...rows].join('\n');
   await page.getByLabel('Choose a time CSV').setInputFiles({
-    name: 'checkout-recovery.csv',
+    name: 'checkout-boundary.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(csv)
   });
 
-  await expect(page.getByRole('status')).toContainText('151 rows imported');
-  await expect(page.getByRole('status')).toContainText('import limit was lifted');
-  await expect(page.locator('.entry-row')).toHaveCount(151);
+  await expect(page.getByRole('status')).toContainText('150 rows imported');
+  await expect(page.getByRole('status')).toContainText('Unlock lifetime for the rest');
+  await expect(page.locator('.entry-row')).toHaveCount(150);
   expect(checkoutChecks).toBe(1);
 });
 
-test('@claim:free-limit keeps the 150-row boundary when checkout is available', async ({ page }) => {
-  await page.route('https://api.sociobot.in/api/v1/products/billable-review/checkout', async route => {
-    expect(route.request().method()).toBe('HEAD');
-    await route.fulfill({ status: 204 });
-  });
+test('@claim:free-limit keeps the 150-row boundary', async ({ page }) => {
   await page.goto('/');
   const rows = Array.from({ length: 151 }, (_, index) =>
     `2026-08-01,Acme,Free tier,Free row ${index + 1},1,true`

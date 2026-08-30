@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "check": "tsc --noEmit",
-    "build": "npm run check && vite build && node scripts/build-service-worker.mjs && node scripts/static-routes.mjs",
+    "build": "npm run check && vite build && node scripts/build-service-worker.mjs && node scripts/static-routes.mjs && node scripts/write-build-identity.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:claims": "node scripts/verify-claims.mjs && playwright test --grep @claim:",
+    "test:billing-live": "node tests/billing-live.mjs",
+    "test:release-live": "node tests/release-live.mjs",
     "test:pwa-update": "npm run build && node tests/pwa-update.mjs"
   },
   "devDependencies": {

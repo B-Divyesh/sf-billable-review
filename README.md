@@ -13,7 +13,7 @@ The app is intentionally not a timer, accounting sync, payroll tool, or invoice 
 
 Try the isolated sample at [`/demo`](https://billable-review.sociobot.in/demo). Its data uses a separate browser-storage namespace and is discarded when you select **Start for real**.
 
-The free edition accepts up to 150 locally stored rows while checkout is available. A US$19 one-time Sociobot license removes that ceiling. If the checkout endpoint is confirmed unavailable, the app lifts the limit instead of blocking an import. Data export, backup, accessibility, and safety behavior are never paywalled.
+The free edition accepts up to 150 locally stored rows. A US$19 one-time Sociobot license removes that ceiling. Checkout errors never remove the free limit. Data export, backup, accessibility, and safety behavior are never paywalled.
 
 ## Develop and verify
 
@@ -32,7 +32,7 @@ npm run test:pwa-update
 
 `npm run build` is the exact production build command. It type-checks and writes the deployable static site to `dist/`. The output includes direct legal routes, the manifest, icons, and the offline service worker.
 
-Playwright is pinned to 1.58.2. Browser tests run on desktop Chromium and a 390 px mobile viewport. They cover the demo, CSV validation, reviews, backups, checkout recovery, licenses, keyboard access, Axe, persistence, offline use, and updates.
+Playwright is pinned to 1.58.2. Browser tests run on desktop Chromium and a 390 px mobile viewport. They cover the demo, CSV validation, reviews, backups, checkout boundaries, licenses, keyboard access, Axe, persistence, offline use, and updates.
 
 Testable product statements are listed in [`.factory/claims.json`](.factory/claims.json). Demo storage and reset behavior are documented in [`.factory/demo.md`](.factory/demo.md).
 
@@ -42,7 +42,9 @@ Production JavaScript and CSS filenames are content-hashed. Azure Static Web App
 
 Publish the contents of `dist/` as a static site at `https://billable-review.sociobot.in`. Do not deploy the repository root. The service worker is scope-relative and requires HTTPS outside localhost.
 
-The checkout and license verification contract uses `https://api.sociobot.in/api/v1/products/billable-review/...`; no payment provider is embedded in this application. The factory registers and configures the product outside this repository.
+The checkout and license verification contract uses `https://api.sociobot.in/api/v1/products/billable-review/...`; no payment provider is embedded in this application. The buy link opens the hosted checkout directly. A returned license is checked immediately, then automatically at most once per 24 hours. A manual restore makes one check per submission.
+
+The Sociobot verification API allows 30 requests per client burst. Additional requests receive HTTP 429 with `Retry-After`; the observed value on 30 August 2026 was three seconds. This app stays well below that allowance during normal use. The endpoints, data sent, and live test are recorded in [`.factory/billing.md`](.factory/billing.md).
 
 ## Privacy and design
 

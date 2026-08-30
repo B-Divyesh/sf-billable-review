@@ -50,23 +50,23 @@
   },
   {
     "id": "free-limit",
-    "claim": "The free edition accepts 150 stored rows when checkout is available.",
+    "claim": "The free edition accepts up to 150 stored rows.",
     "where": "first screen, pricing, README",
     "test": "npm run test:e2e -- --grep @claim:free-limit",
-    "sandbox": "mock a healthy Sociobot checkout; import 151 rows; assert exactly 150 stored and the next import is retained for recovery"
+    "sandbox": "fresh browser context; import 151 rows; assert exactly 150 stored and the next import is retained for recovery"
   },
   {
     "id": "lifetime-license",
-    "claim": "The app states US$19 once, and a verified lifetime license removes the 150-row import limit.",
+    "claim": "A returned lifetime license is verified immediately, removes the 150-row limit, and is checked automatically at most once per 24 hours.",
     "where": "pricing, license panel, terms, README",
     "test": "npm run test:e2e -- --grep @claim:lifetime-license",
-    "sandbox": "recorded valid Sociobot verification response; assert return-token capture and a 151-row import without truncation"
+    "sandbox": "recorded valid Sociobot verification response; assert return-token capture, one verification across reloads, and a 151-row import without truncation"
   },
   {
-    "id": "checkout-outage-recovery",
-    "claim": "A confirmed unavailable checkout lifts the import limit instead of blocking review.",
-    "where": "pricing and license panel",
-    "test": "npm run test:e2e -- --grep @claim:checkout-outage-recovery",
-    "sandbox": "mock the verifier's exact checkout HEAD 404 body; assert no dead navigation and all 151 rows import locally"
+    "id": "checkout-boundary",
+    "claim": "Checkout links to the registered Sociobot product, and a checkout failure never lifts the 150-row limit.",
+    "where": "pricing, license panel, README",
+    "test": "npm run test:e2e -- --grep @claim:checkout-boundary",
+    "sandbox": "reproduce the verifier's exact checkout 404, seed its former unavailable cache, and assert the direct URL is exact with only 150 of 151 rows stored"
   }
 ]

@@ -2,8 +2,7 @@ import './styles.css';
 import { parseBackup } from './backup';
 import { importCsv, roundMinutes, csvEscape, spreadsheetSafe } from './csv';
 import { getEntries, putEntries, replaceEntries } from './db';
-import { BUY_URL, captureLicense, checkCheckoutAvailability, getCheckoutAvailability, getLicense, saveLicense, verifyLicense } from './license';
-import type { CheckoutAvailability } from './license';
+import { BUY_URL, captureLicense, getLicense, saveLicense, verifyLicense } from './license';
 import type { EntryStatus, LicenseState, Settings, TimeEntry } from './types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -16,7 +15,6 @@ let selected = new Set<string>();
 let filter = 'open';
 let query = '';
 let license: LicenseState = DEMO_MODE ? { token: '', valid: false, checkedAt: 0 } : getLicense();
-let checkoutAvailability: CheckoutAvailability = getCheckoutAvailability();
 let lastFocused: HTMLElement | null = null;
 
 const DEMO_CSV = `Date,Client,Project,Description,Hours,Billable
@@ -53,7 +51,7 @@ function shell(content: string, legal = false): string {
     </header>
     ${demoBanner}
     <main id="main" class="${legal ? 'legal-page' : ''}">${content}</main>
-    <footer><p>Your time rows stay in this browser. Built by Param Factory · v1.1.0</p><nav class="footer-links" aria-label="Legal and artwork"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="#art-note" data-action="art-note">Artwork disclosure</a></nav></footer>
+    <footer><p>Your time rows stay in this browser. Built by Param Factory · v1.2.0 · build <span data-build-commit>${esc(__BUILD_COMMIT__.slice(0, 7))}</span></p><nav class="footer-links" aria-label="Legal and artwork"><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="#art-note" data-action="art-note">Artwork disclosure</a></nav></footer>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <div id="offline-note" class="offline-note" role="status" hidden>You’re offline. Review and exports still work.</div>
     <div id="modal-root"></div>`;
@@ -91,7 +89,7 @@ function emptyView(): string {
     <figure class="hero-art"><picture><source type="image/avif" srcset="/assets/hero-ledger-960.avif 960w"><source type="image/webp" srcset="/assets/hero-ledger-960.webp 960w, /assets/hero-ledger-1536.webp 1536w"><img src="/assets/hero-ledger-960.webp" width="960" height="640" alt="Paper time slips crossing a midnight bridge from a clock-shaped island into a red ledger" fetchpriority="high" decoding="async"></picture><figcaption>Time rows moving from a timer to an invoice.</figcaption></figure>
   </section>
   <section class="how"><p class="eyebrow">HOW IT WORKS</p><h2>Review time in three steps.</h2><ol><li><span>01</span><strong>Import</strong><p>Original CSV fields are preserved alongside normalized time.</p></li><li><span>02</span><strong>Resolve</strong><p>Stale and uncategorized work appears first. Rounding stays visible.</p></li><li><span>03</span><strong>Export</strong><p>Download approved lines and keep the invoice reference locally.</p></li></ol></section>
-  <section class="price-strip"><div><p class="eyebrow">PRICING</p><h2>Review ${FREE_LIMIT} rows free.</h2><p>US$19 once removes the import limit. If checkout is unavailable, imports continue free instead of stopping your review.</p></div><button class="button secondary" type="button" data-action="checkout">Check purchase — $19</button></section>`;
+  <section class="price-strip"><div><p class="eyebrow">PRICING</p><h2>Review ${FREE_LIMIT} rows free.</h2><p>US$19 once removes the import limit. Checkout is hosted by Sociobot/Dodo.</p></div><a class="button secondary" href="${BUY_URL}">Buy lifetime — $19</a></section>`;
 }
 
 function notFoundView(): string {
@@ -185,21 +183,13 @@ async function handleCsv(file: File): Promise<void> {
     const parsed = importCsv(await file.text(), file.name);
     let incoming = parsed.entries;
     if (!license.valid && entries.length + incoming.length > FREE_LIMIT) {
-      checkoutAvailability = await checkCheckoutAvailability();
-      if (checkoutAvailability === 'unavailable') {
-        parsed.warnings.push('Checkout is unavailable, so the import limit was lifted.');
-      } else {
       const room = Math.max(0, FREE_LIMIT - entries.length);
       incoming = incoming.slice(0, room);
       if (!room) {
-        const availabilityNote = checkoutAvailability === 'unknown'
-          ? ' Checkout availability could not be confirmed. Reconnect and try again, or restore a license.'
-          : '';
-        openLicense(`The free ledger holds ${FREE_LIMIT} rows. Your existing data is safe; unlock lifetime to import more.${availabilityNote}`);
+        openLicense(`The free ledger holds ${FREE_LIMIT} rows. Your existing data is safe; buy lifetime or restore a license to import more.`);
         return;
       }
       parsed.warnings.push(`The free ledger imported the first ${room} rows. Unlock lifetime for the rest.`);
-      }
     }
     entries = [...entries, ...incoming];
     await putEntries(incoming);
@@ -281,32 +271,15 @@ function openSettings(): void {
 }
 
 function openLicense(notice = ''): void {
-  const unavailable = checkoutAvailability === 'unavailable';
-  const availabilityNotice = unavailable ? 'Checkout is unavailable, so the 150-row import limit is lifted. No purchase is required while it is down.' : '';
-  const dialog = openModal(license.valid ? 'Lifetime is active' : unavailable ? 'Imports remain open' : 'Get unlimited imports', `<div class="license-panel">${notice || availabilityNotice ? `<p class="notice">${esc(notice || availabilityNotice)}</p>` : ''}<p class="price"><span>$19</span> once</p><p>Import more than 150 CSV rows on this device. No subscription, account, or cloud upload.</p><ul><li>Unlimited time-entry imports</li><li>All exception, reconciliation, backup, and export tools</li><li>Works offline after first load</li></ul>${license.valid ? '<p class="success-note">✓ This browser has a verified lifetime license.</p>' : `${unavailable ? '<p class="success-note">✓ Imports are uncapped while checkout is unavailable.</p>' : '<button class="button primary full" type="button" data-action="checkout">Check purchase availability — $19</button><p class="merchant">This check contacts Sociobot without sending time-entry data. Available checkout is handled by Sociobot/Dodo.</p>'}<form id="license-form"><label>Have a license? Paste it here<input name="token" autocomplete="off" required></label><button class="button secondary" type="submit">Verify and restore</button><p class="form-error" role="alert" hidden></p></form>`}<p class="legal-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></div>`);
+  const dialog = openModal(license.valid ? 'Lifetime is active' : 'Get unlimited imports', `<div class="license-panel">${notice ? `<p class="notice">${esc(notice)}</p>` : ''}<p class="price"><span>$19</span> once</p><p>Import more than 150 CSV rows on this device. No subscription, account, or cloud upload.</p><ul><li>Unlimited time-entry imports</li><li>All exception, reconciliation, backup, and export tools</li><li>Works offline after first load</li></ul>${license.valid ? '<p class="success-note">✓ This browser has a verified lifetime license.</p>' : `<a class="button primary full" href="${BUY_URL}">Buy lifetime — $19</a><p class="merchant">Checkout is handled by Sociobot/Dodo, the merchant of record. License checks run on return, then at most once per day.</p><form id="license-form"><label>Have a license? Paste it here<input name="token" autocomplete="off" required></label><button class="button secondary" type="submit">Verify and restore</button><p class="form-error" role="alert" hidden></p></form>`}<p class="legal-links"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p></div>`);
   const form = dialog.querySelector<HTMLFormElement>('#license-form');
   form?.addEventListener('submit', async event => { event.preventDefault(); const token = String(new FormData(form).get('token') || '').trim(); if (!token) return; saveLicense(token); const button = form.querySelector('button')!; button.textContent = 'Verifying…'; button.disabled = true; license = await verifyLicense(true); if (license.valid) { dialog.close(); render(); showToast('Lifetime license restored.'); } else { const error = form.querySelector<HTMLElement>('.form-error')!; error.textContent = navigator.onLine ? 'That license could not be verified. Check the token and try again.' : 'You’re offline. Reconnect once to verify this license.'; error.hidden = false; button.textContent = 'Verify and restore'; button.disabled = false; } });
-  dialog.querySelector('[data-action="checkout"]')?.addEventListener('click', () => void startCheckout(dialog));
-}
-
-async function startCheckout(dialog?: HTMLDialogElement): Promise<void> {
-  const button = (dialog || document).querySelector<HTMLButtonElement>('[data-action="checkout"]');
-  if (button) { button.disabled = true; button.textContent = 'Checking purchase…'; }
-  checkoutAvailability = await checkCheckoutAvailability(true);
-  if (checkoutAvailability === 'available') { location.assign(BUY_URL); return; }
-  dialog?.close();
-  if (checkoutAvailability === 'unavailable') {
-    openLicense('Checkout is unavailable, so the 150-row import limit is lifted. No purchase is required while it is down.');
-  } else {
-    openLicense('Checkout could not be reached. Reconnect and check again. Your local rows and exports remain available.');
-  }
 }
 
 function artNote(): void { openModal('About the artwork', '<div class="art-note"><img src="/assets/hero-ledger-960.webp" width="480" height="320" alt="Paper time slips crossing from a clock island into a ledger"><p>This illustration was generated for Billable Review with the Param Factory image model on 28 August 2026. It contains no stock art, people, logos, or product claims.</p></div>', true); }
 
 function bindGlobal(): void {
   document.querySelectorAll('[data-action="license"]').forEach(button => button.addEventListener('click', () => openLicense()));
-  document.querySelectorAll('[data-action="checkout"]').forEach(button => button.addEventListener('click', () => void startCheckout()));
   document.querySelectorAll('[data-action="art-note"]').forEach(button => button.addEventListener('click', event => { event.preventDefault(); artNote(); }));
   document.querySelectorAll('[data-action="reset-demo"]').forEach(button => button.addEventListener('click', () => void resetDemo()));
   document.querySelectorAll('[data-action="start-real"]').forEach(button => button.addEventListener('click', () => void leaveDemo()));

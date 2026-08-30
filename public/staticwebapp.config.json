@@ -13,6 +13,7 @@
   },
   "routes": [
     { "route": "/assets/*", "headers": { "Cache-Control": "public, max-age=31536000, immutable" } },
+    { "route": "/build.json", "headers": { "Cache-Control": "no-store" } },
     { "route": "/sw.js", "headers": { "Cache-Control": "no-cache" } },
     { "route": "/manifest.webmanifest", "headers": { "Cache-Control": "public, max-age=3600" } }
   ]

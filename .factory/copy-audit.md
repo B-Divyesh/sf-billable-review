@@ -28,10 +28,10 @@ Audited 2026-08-30. Word counts treat spaced symbols as words. No line exceeds 2
 | 1 | PRICING | pass |
 | 4 | Review 150 rows free. | pass |
 | 6 | US$19 once removes the import limit. | pass |
-| 12 | If checkout is unavailable, imports continue free instead of stopping your review. | pass |
-| 4 | Check purchase — $19 | pass |
+| 6 | Checkout is hosted by Sociobot/Dodo. | pass |
+| 4 | Buy lifetime — $19 | pass |
 | 7 | Your time rows stay in this browser. | pass |
-| 6 | Built by Param Factory · v1.1.0 | pass |
+| 9 | Built by Param Factory · v1.2.0 · build [commit] | pass |
 | 1 | Privacy | pass |
 | 1 | Terms | pass |
 | 2 | Artwork disclosure | pass |
