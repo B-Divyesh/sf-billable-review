@@ -22,7 +22,8 @@ export async function checkCheckoutAvailability(force = false): Promise<Checkout
   if (!force && cached !== 'unknown') return cached;
   if (!navigator.onLine) return 'unknown';
   try {
-    const response = await fetch(BUY_URL, { method: 'HEAD', redirect: 'manual', cache: 'no-store' });
+    const response = await probeCheckout();
+    if (!response) return 'unknown';
     const availability: CheckoutAvailability = response.status === 404 || response.status === 410
       ? 'unavailable'
       : response.ok || response.type === 'opaqueredirect' || (response.status >= 300 && response.status < 400)
@@ -33,6 +34,24 @@ export async function checkCheckoutAvailability(force = false): Promise<Checkout
   } catch {
     return 'unknown';
   }
+}
+
+function probeCheckout(): Promise<{ status: number; type: ResponseType; ok: boolean } | null> {
+  if (!('Worker' in window)) return Promise.resolve(null);
+  return new Promise(resolve => {
+    const worker = new Worker('/checkout-probe.js');
+    const timeout = window.setTimeout(() => { worker.terminate(); resolve(null); }, 8000);
+    worker.addEventListener('message', event => {
+      window.clearTimeout(timeout);
+      worker.terminate();
+      const result = event.data as { status?: unknown; type?: unknown; ok?: unknown };
+      resolve(typeof result?.status === 'number' && typeof result.type === 'string' && typeof result.ok === 'boolean'
+        ? { status: result.status, type: result.type as ResponseType, ok: result.ok }
+        : null);
+    }, { once: true });
+    worker.addEventListener('error', () => { window.clearTimeout(timeout); worker.terminate(); resolve(null); }, { once: true });
+    worker.postMessage(BUY_URL);
+  });
 }
 
 export function captureLicense(): boolean {
