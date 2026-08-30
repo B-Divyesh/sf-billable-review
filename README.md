@@ -1,6 +1,6 @@
 # Billable Review
 
-Billable Review is a private, offline-first reconciliation desk for freelancers whose time tracker and invoicing system are separate. Import a CSV, surface stale or uncategorized work, make rounding explicit, record invoice references or write-off reasons, and export approved invoice lines.
+Billable Review is a local reconciliation board for freelancers whose timer and invoicing system are separate. Import a CSV, find stale or uncategorized work, record invoice references or write-off reasons, and export approved invoice lines.
 
 The app is intentionally not a timer, accounting sync, payroll tool, or invoice sender. Original CSV fields and review history remain in the browser’s IndexedDB. There are no analytics, accounts, third-party scripts, or cloud uploads.
 
@@ -11,7 +11,9 @@ The app is intentionally not a timer, accounting sync, payroll tool, or invoice 
 3. Approve rows, link them to an invoice reference, or write them off with a reason. Exact, 6-, 15-, and 30-minute rounding is visible and never changes the preserved original duration.
 4. Export approved line items as CSV. Export/restore a JSON backup whenever you want to move or safeguard local data.
 
-The free edition accepts up to 150 locally stored rows. A US$19 one-time Sociobot license removes that ceiling. Data export, backup, accessibility, and safety behavior are never paywalled.
+Try the isolated sample at [`/demo`](https://billable-review.sociobot.in/demo). Its data uses a separate browser-storage namespace and is discarded when you select **Start for real**.
+
+The free edition accepts up to 150 locally stored rows while checkout is available. A US$19 one-time Sociobot license removes that ceiling. If the checkout endpoint is confirmed unavailable, the app lifts the limit instead of blocking an import. Data export, backup, accessibility, and safety behavior are never paywalled.
 
 ## Develop and verify
 
@@ -24,14 +26,17 @@ npm test
 npm run check
 npm run build
 npm run test:e2e
+npm run test:claims
 npm run test:pwa-update
 ```
 
-`npm run build` is the exact production build command. It type-checks and writes the deployable static site to `dist/`, including `dist/index.html`, direct `/privacy` and `/terms` entry points, the web app manifest, icons, and offline service worker.
+`npm run build` is the exact production build command. It type-checks and writes the deployable static site to `dist/`. The output includes direct legal routes, the manifest, icons, and the offline service worker.
 
-Playwright is pinned to 1.58.2. The browser tests cover desktop Chromium, a 390 px mobile viewport, CSV import and date rejection, outcome editing, backup/settings restore, license callbacks, keyboard access, all Axe findings, persisted IndexedDB state, an offline reload, and the service-worker update lifecycle.
+Playwright is pinned to 1.58.2. Browser tests run on desktop Chromium and a 390 px mobile viewport. They cover the demo, CSV validation, reviews, backups, checkout recovery, licenses, keyboard access, Axe, persistence, offline use, and updates.
 
-Production JavaScript and CSS filenames are content-hashed. The included Azure Static Web Apps configuration applies immutable asset caching, the web-manifest MIME type, CSP, Permissions Policy, and other baseline response headers.
+Testable product statements are listed in [`.factory/claims.json`](.factory/claims.json). Demo storage and reset behavior are documented in [`.factory/demo.md`](.factory/demo.md).
+
+Production JavaScript and CSS filenames are content-hashed. Azure Static Web Apps applies immutable caching and the correct manifest type. It also sends CSP, Permissions Policy, and other baseline security headers.
 
 ## Deploy
 

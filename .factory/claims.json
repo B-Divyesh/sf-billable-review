@@ -1,0 +1,72 @@
+[
+  {
+    "id": "csv-workflow",
+    "claim": "Imports timer CSV rows, keeps review decisions, shows rounding, and exports approved invoice lines.",
+    "where": "landing page, working board, README",
+    "test": "npm run test:e2e -- --grep @claim:csv-workflow",
+    "sandbox": "fresh browser context; bundled Clockify fixture; assert imported exceptions, rounded result, CSV download, and reload persistence"
+  },
+  {
+    "id": "date-groups",
+    "claim": "Groups review rows by client, project, and date.",
+    "where": "working board, README",
+    "test": "npm run test:e2e -- --grep @claim:date-groups",
+    "sandbox": "fresh browser context; bundled date-groups fixture; assert three client/project/date groups"
+  },
+  {
+    "id": "source-preservation",
+    "claim": "Preserves original imported fields in local backups while making derived invoice CSV cells spreadsheet-safe.",
+    "where": "How it works, README",
+    "test": "npm run test:e2e -- --grep @claim:source-preservation",
+    "sandbox": "fresh browser context; formula-prefix fixture; assert safe invoice export and byte-preserved backup values"
+  },
+  {
+    "id": "backup-roundtrip",
+    "claim": "Exports and restores the local ledger as a JSON backup.",
+    "where": "working board, README",
+    "test": "npm run test:e2e -- --grep @claim:backup-roundtrip",
+    "sandbox": "fresh browser context; export sample ledger, erase it, add a decoy, restore backup, and assert exact replacement"
+  },
+  {
+    "id": "local-only",
+    "claim": "Time-entry data stays in the browser and the normal review workflow makes no third-party request.",
+    "where": "first screen, footer, privacy page, README",
+    "test": "npm run test:e2e -- --grep @claim:local-only",
+    "sandbox": "fresh browser context; record every request while importing and reviewing local fixture data"
+  },
+  {
+    "id": "offline-reload",
+    "claim": "Review and export work offline after the first visit.",
+    "where": "first screen, license panel, README",
+    "test": "npm run test:e2e -- --grep @claim:offline-reload",
+    "sandbox": "fresh browser context; install service worker, reload under context.setOffline(true), and assert the saved shell"
+  },
+  {
+    "id": "demo-sandbox",
+    "claim": "The one-click demo uses sample data without reading or replacing the real ledger.",
+    "where": "first screen, demo banner, README",
+    "test": "npm run test:e2e -- --grep @claim:demo-sandbox",
+    "sandbox": "seed a private row in the real IndexedDB namespace, enter /demo, assert isolation, then leave and recover the private row"
+  },
+  {
+    "id": "free-limit",
+    "claim": "The free edition accepts 150 stored rows when checkout is available.",
+    "where": "first screen, pricing, README",
+    "test": "npm run test:e2e -- --grep @claim:free-limit",
+    "sandbox": "mock a healthy Sociobot checkout; import 151 rows; assert exactly 150 stored and the next import is retained for recovery"
+  },
+  {
+    "id": "lifetime-license",
+    "claim": "The app states US$19 once, and a verified lifetime license removes the 150-row import limit.",
+    "where": "pricing, license panel, terms, README",
+    "test": "npm run test:e2e -- --grep @claim:lifetime-license",
+    "sandbox": "recorded valid Sociobot verification response; assert return-token capture and a 151-row import without truncation"
+  },
+  {
+    "id": "checkout-outage-recovery",
+    "claim": "A confirmed unavailable checkout lifts the import limit instead of blocking review.",
+    "where": "pricing and license panel",
+    "test": "npm run test:e2e -- --grep @claim:checkout-outage-recovery",
+    "sandbox": "mock the verifier's exact checkout HEAD 404 body; assert no dead navigation and all 151 rows import locally"
+  }
+]

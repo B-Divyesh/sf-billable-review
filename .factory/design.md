@@ -48,7 +48,7 @@ With `prefers-reduced-motion: reduce`, all movement and smooth scrolling become 
 - Light/lens: long dawn shadows, slightly elevated orthographic editorial view, generous negative space.
 - Palette words: midnight ink, oatmeal paper, oxidized vermilion, muted moss, antique gold.
 - Negative list: people, hands, readable text, numbers, logos, brands, watermarks, glossy 3D, generic office, gradients, photorealism, malformed symbols.
-- Exact prompt is stored beside the source image in `assets/src/hero-ledger.json`.
+- Exact prompt is stored beside the source image in `assets/src/hero-ledger.json`. The 1200×630 social preview is a crop of this original image; the 180 px touch icon is derived from the hand-authored app icon.
 - Generator: Azure OpenAI image generation via the Param Factory `gen-image.sh`, deployment `factory-image`; generated 2026-08-28. Original output is product-owned generated artwork. The shipped WebP is a loss-minimized derivative.
 
 ### Authored assets
