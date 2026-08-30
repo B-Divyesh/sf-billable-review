@@ -33,6 +33,7 @@ Run on Node.js 22.23.2 with Playwright 1.58.2 and its preinstalled Chromium:
 - `npm run test:claims` — claim mapping passed; 22/22 desktop/mobile claim runs passed.
 - `npm run test:pwa-update` — update notice, activation, and stale-cache cleanup passed.
 - `npm run test:billing-live` — passed against the registered product and normal 200 verification policy. The 429 branch requires a positive `Retry-After` whenever shared saturation is encountered.
+- `EXPECTED_COMMIT=f8edc97a5ce383987d1d504c43bca02fac39b44c npm run test:release-live` — passed against the first repair deployment: exact clean identity, 390 px return-token flow, Axe, CORS/cache policy, and the real 200-or-429 verification policy.
 - `/opt/fleet/lib/verify-url.sh http://127.0.0.1:4173 <evidence-dir>` — 200; 547 ms network-idle; no console/page errors; title and `lang`; one h1/main; no missing alt text or unnamed buttons.
 - Lighthouse 13.0.1 mobile — performance 100, accessibility 100, best practices 100, SEO 100; LCP 1,549 ms, CLS 0, total blocking time 0 ms, speed index 947 ms.
 

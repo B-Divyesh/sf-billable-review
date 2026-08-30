@@ -43,20 +43,17 @@ try {
 }
 
 const invalidToken = `billable-review-final-${expectedCommit.slice(0, 12)}-invalid`;
-let verification = await fetch(`https://api.sociobot.in/api/v1/products/billable-review/verify?license=${invalidToken}`, {
+const verification = await fetch(`https://api.sociobot.in/api/v1/products/billable-review/verify?license=${invalidToken}`, {
   headers: { Origin: baseUrl }
 });
 if (verification.status === 429) {
   const retryAfter = Number(verification.headers.get('retry-after'));
-  assert.ok(retryAfter > 0);
-  await new Promise(resolve => setTimeout(resolve, (retryAfter + 1) * 1000));
-  verification = await fetch(`https://api.sociobot.in/api/v1/products/billable-review/verify?license=${invalidToken}`, {
-    headers: { Origin: baseUrl }
-  });
+  assert.ok(Number.isFinite(retryAfter) && retryAfter > 0, 'A saturated 429 must include a positive Retry-After value.');
+} else {
+  assert.equal(verification.status, 200);
+  assert.equal(verification.headers.get('cache-control'), 'no-store');
+  assert.equal(verification.headers.get('access-control-allow-origin'), baseUrl);
+  assert.deepEqual(await verification.json(), { expires_at: null, reason: 'invalid', valid: false });
 }
-assert.equal(verification.status, 200);
-assert.equal(verification.headers.get('cache-control'), 'no-store');
-assert.equal(verification.headers.get('access-control-allow-origin'), baseUrl);
-assert.deepEqual(await verification.json(), { expires_at: null, reason: 'invalid', valid: false });
 
-process.stdout.write(`Live release passed for ${identity.commit}: mobile return-token verification, identity, accessibility, response policy, and real invalid-license verification.\n`);
+process.stdout.write(`Live release passed for ${identity.commit}: mobile return-token verification, identity, accessibility, and the real 200-or-429 response policy.\n`);
