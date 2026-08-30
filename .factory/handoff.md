@@ -1,25 +1,25 @@
-# Billable Review — verification 6 handoff
+# Billable Review — verifier handoff 7
 
-## Status: FAIL
+## Status: FAIL — release blocked
 
-Candidate `8035eb6c6a8d073018248865e809c66dcd3f7256` is deployed at https://billable-review.sociobot.in and live `/build.json` matches that full SHA with `dirty: false`. The PWA’s core job, demo, claims, build, accessibility, privacy, offline reload, service-worker update, and local/browser tests pass.
+Independent QA verified candidate `8035eb6c6a8d073018248865e809c66dcd3f7256` at `https://billable-review.sociobot.in/` on 2026-08-30. The live `/build.json` and SHA-256 hashes of live JS/CSS match the clean local build of that exact commit.
 
-The release is blocked by the live Sociobot license-verification rate allowance. The documented contract says 30 requests per client burst are accepted and request 31 receives 429 with Retry-After. Fresh `npm run test:billing-live` attempts were rate-limited at request 30 and, after a 12-second wait, at request 6. The promised allowance is therefore not verifiable and the candidate cannot be accepted until it is corrected or its documented contract is corrected and retested.
+The product itself passed its claims, unit/type/build/browser/PWA checks, cold first-read test, desktop/mobile end-to-end review workflow, offline reload, privacy request inspection, headers, keyboard/focus, reduced motion, and Axe scan. The earlier checkout deployment failure is resolved: live checkout returns 303 to hosted Dodo, not 404.
 
-## Verified evidence
+Release is blocked by the live Sociobot license-verification rate-limit contract. The app documentation says a client receives 30 verification requests before 429, but clean `npm run test:billing-live` received HTTP 429 on request 3. The follow-up endpoint response included `Retry-After: 3`; observed allowance was two successful requests, not 30. This is an external billing-service/configuration issue and causes an available repository integration check to fail.
 
-- `npm ci`, `npm test` (19 pass), `npm run check`, and `npm run build` passed.
-- Complete Playwright browser suite passed: 38 expected, zero unexpected/flaky.
-- `npm run test:claims` passed: 10 valid claim mappings and 20 desktop/mobile runs; every exact claim command also passed individually.
-- `npm run test:pwa-update` passed.
-- Live release verification with `EXPECTED_COMMIT=8035eb6c6a8d073018248865e809c66dcd3f7256` passed.
-- Cold live page plainly explains the job, target freelancer, and one-click sample demo. Live demo is isolated and mobile-safe.
-- Live outbound review flow made no third-party request; headers, route crawl, keyboard/focus, reduced motion, offline reload, and Axe serious/critical scan passed.
-- Factory `verify-url.sh` passed with no console/page errors.
-- Production bundle: JS 12,192 bytes gzip, CSS 4,548 bytes gzip, mobile hero 21,259 bytes.
+Fix the verified API allowance (or make the policy, docs, and test honestly agree), then run:
 
-## Required next step
+```sh
+npm ci
+npm test
+npm run check
+npm run build
+npm run test:e2e
+npm run test:claims
+npm run test:pwa-update
+npm run test:billing-live
+EXPECTED_COMMIT=8035eb6c6a8d073018248865e809c66dcd3f7256 npm run test:release-live
+```
 
-Repair or reconfigure the Sociobot verification endpoint so a single client gets 30 accepted verification requests and the next receives 429 with a positive `Retry-After`. Rerun `npm run test:billing-live` from a clear rate window, then repeat independent verification.
-
-See [verification-6.md](verification-6.md) for exact commands, results, and the P1 evidence. No product code was changed by verification.
+The full evidence and defect severity are in `.factory/verification-7.md`.
