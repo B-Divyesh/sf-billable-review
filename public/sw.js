@@ -1,6 +1,6 @@
 const CACHE = 'billable-review-shell-__CACHE_VERSION__';
 const BUILD_ASSETS = ['__BUILD_ASSETS__'];
-const SHELL = ['/', '/offline.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/assets/hero-ledger-960.avif', '/assets/hero-ledger-960.webp', '/assets/hero-ledger-1536.webp', ...BUILD_ASSETS];
+const SHELL = ['/', '/offline.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png', '/assets/hero-ledger-960.avif', '/assets/hero-ledger-960.webp', '/assets/hero-ledger-1536.webp', ...BUILD_ASSETS];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));

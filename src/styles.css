@@ -48,6 +48,10 @@ footer { display: flex; width: min(1280px, calc(100% - 48px)); margin: 72px auto
 footer p { margin: 0; }
 .footer-links { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
 .footer-links a { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+.demo-banner { display: flex; width: min(1280px, calc(100% - 48px)); min-height: 52px; margin: 12px auto 0; padding: 8px 12px; align-items: center; gap: 12px 20px; border: 1px solid var(--gold); background: var(--gold-pale); }
+.demo-banner span { color: var(--ink-soft); }
+.demo-banner div { display: flex; margin-left: auto; gap: 8px; }
+.demo-banner button { min-height: 44px; padding: 6px 10px; border: 1px solid var(--ink); background: transparent; color: var(--ink); font-weight: 750; cursor: pointer; }
 
 .eyebrow { margin-bottom: 14px; color: var(--coral-deep); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; font-weight: 800; letter-spacing: .09em; }
 .lede { max-width: 62ch; color: var(--ink-soft); font-size: clamp(1.08rem, 2vw, 1.28rem); line-height: 1.6; }
@@ -68,6 +72,9 @@ footer p { margin: 0; }
 .hero { display: grid; width: min(1280px, calc(100% - 48px)); margin: 56px auto 0; align-items: center; grid-template-columns: minmax(340px, .86fr) minmax(500px, 1.14fr); gap: clamp(32px, 5vw, 80px); }
 .hero-copy { padding: 40px 0; }
 .hero-copy .button { margin-top: 16px; }
+.hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.plain-facts { margin: 24px 0 0; padding: 18px 0 0 20px; border-top: 1px solid var(--rule); color: var(--ink-soft); }
+.plain-facts li { margin: 5px 0; }
 .hero-art { position: relative; margin: 0; }
 .hero-art::before { position: absolute; z-index: -1; inset: -12px 12px 12px -12px; border: 1px solid var(--ink); content: ""; }
 .hero-art img { width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
@@ -184,6 +191,8 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
 .legal-page h1 { max-width: 14ch; }
 .legal-page h2 { margin-top: 44px; margin-bottom: 10px; font-size: 27px; }
 .legal-page p:not(.eyebrow, .lede) { max-width: 70ch; color: var(--ink-soft); }
+.not-found { width: min(760px, calc(100% - 48px)); margin: 96px auto; }
+.not-found p { max-width: 54ch; color: var(--ink-soft); }
 
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; margin-top: 28px; }
@@ -195,13 +204,14 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
 }
 
 @media (max-width: 640px) {
-  .site-header, footer, .hero, .how, .price-strip, .board-heading, .ledger-layout { width: calc(100% - 32px); }
+  .site-header, footer, .demo-banner, .hero, .how, .price-strip, .board-heading, .ledger-layout { width: calc(100% - 32px); }
   .site-header { min-height: 72px; }
   .site-header nav > a { display: none; }
   .brand span { font-size: 17px; }
   h1 { font-size: clamp(2.5rem, 13vw, 3.5rem); }
   .hero-copy { padding-top: 18px; }
   .hero-copy .button { width: 100%; }
+  .hero-actions { display: grid; }
   .hero-art figcaption { position: static; padding: 8px 0; background: none; }
   .how { margin: 80px auto; }
   .how ol { grid-template-columns: 1fr; }
@@ -236,6 +246,8 @@ input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; accent-
   .modal fieldset, .choice-grid { grid-template-columns: 1fr; }
   .modal-actions { flex-direction: column-reverse; }
   .modal-actions .button { width: 100%; }
+  .demo-banner { align-items: stretch; flex-direction: column; }
+  .demo-banner div { display: grid; width: 100%; margin-left: 0; grid-template-columns: 1fr 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -10,20 +10,22 @@ async function tabTo(page: import('@playwright/test').Page, target: import('@pla
   throw new Error('Expected control was not reachable with Tab.');
 }
 
-test('imports, resolves, persists and exports time rows', async ({ page }) => {
+test('@claim:csv-workflow imports, resolves, persists and exports time rows', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Find the hours');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Review unbilled time');
   await page.locator('[data-import]').setInputFiles('tests/fixtures/clockify.csv');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('destination');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Review unbilled time');
   await expect(page.getByText('Acme Studio').first()).toBeVisible();
   await expect(page.getByText('Needs category').first()).toBeVisible();
   await page.getByRole('button', { name: /Review Layout review/ }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Client', exact: true }).fill('Acme Studio');
   await dialog.getByRole('textbox', { name: 'Project', exact: true }).fill('Annual report');
-  await dialog.getByLabel('Rounding').selectOption('15');
+  await dialog.getByLabel('Rounding').selectOption('30');
   await dialog.getByRole('button', { name: 'Save outcome' }).click();
   await expect(page.getByText('Approved').first()).toBeVisible();
+  await expect(page.getByText('1.50 h', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('was 1.25 h', { exact: true }).first()).toBeVisible();
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export approved CSV' }).click();
   expect((await download).suggestedFilename()).toMatch(/billable-review.*\.csv/);
@@ -38,9 +40,12 @@ test('has no automated accessibility violations', async ({ page }) => {
   await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
   const boardResults = await new AxeBuilder({ page: page as never }).analyze();
   expect(boardResults.violations).toEqual([]);
+  await page.goto('/demo');
+  const demoResults = await new AxeBuilder({ page: page as never }).analyze();
+  expect(demoResults.violations).toEqual([]);
 });
 
-test('verifies and unlocks a checkout-return license without a reload', async ({ page }) => {
+test('@claim:lifetime-license verifies and unlocks a checkout-return license without a reload', async ({ page }) => {
   let verificationCalls = 0;
   await page.route('https://api.sociobot.in/api/v1/products/billable-review/verify?license=qa-valid-token', async route => {
     verificationCalls += 1;
@@ -48,9 +53,110 @@ test('verifies and unlocks a checkout-return license without a reload', async ({
   });
   await page.goto('/?license=qa-valid-token');
   await expect(page.getByRole('button', { name: 'Lifetime unlocked' })).toBeVisible();
+  await expect(page.getByText('US$19 once removes the import limit.')).toBeVisible();
   expect(verificationCalls).toBe(1);
   expect(new URL(page.url()).searchParams.has('license')).toBe(false);
   expect(await page.evaluate(() => localStorage.getItem('sb_license:billable-review'))).toBe('qa-valid-token');
+
+  const rows = Array.from({ length: 151 }, (_, index) =>
+    `2026-08-01,Acme,Licensed,Licensed row ${index + 1},1,true`
+  );
+  await page.getByLabel('Choose a time CSV').setInputFiles({
+    name: 'licensed-import.csv', mimeType: 'text/csv',
+    buffer: Buffer.from(['Date,Client,Project,Description,Hours,Billable', ...rows].join('\n'))
+  });
+  await expect(page.locator('.entry-row')).toHaveCount(151);
+});
+
+test('@claim:checkout-outage-recovery lifts the import cap when production checkout returns 404', async ({ page }) => {
+  let checkoutChecks = 0;
+  await page.route('https://api.sociobot.in/api/v1/products/billable-review/checkout', async route => {
+    expect(route.request().method()).toBe('HEAD');
+    checkoutChecks += 1;
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'enabled factory product', status: 404 })
+    });
+  });
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Check purchase — $19' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Checkout is unavailable');
+  await expect(page.getByRole('dialog')).toContainText('Imports are uncapped');
+  expect(page.url()).toBe('http://127.0.0.1:4173/');
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  const rows = Array.from({ length: 151 }, (_, index) =>
+    `2026-08-01,Acme,Recovery,Recovered row ${index + 1},1,true`
+  );
+  const csv = ['Date,Client,Project,Description,Hours,Billable', ...rows].join('\n');
+  await page.getByLabel('Choose a time CSV').setInputFiles({
+    name: 'checkout-recovery.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csv)
+  });
+
+  await expect(page.getByRole('status')).toContainText('151 rows imported');
+  await expect(page.getByRole('status')).toContainText('import limit was lifted');
+  await expect(page.locator('.entry-row')).toHaveCount(151);
+  expect(checkoutChecks).toBe(1);
+});
+
+test('@claim:free-limit keeps the 150-row boundary when checkout is available', async ({ page }) => {
+  await page.route('https://api.sociobot.in/api/v1/products/billable-review/checkout', async route => {
+    expect(route.request().method()).toBe('HEAD');
+    await route.fulfill({ status: 204 });
+  });
+  await page.goto('/');
+  const rows = Array.from({ length: 151 }, (_, index) =>
+    `2026-08-01,Acme,Free tier,Free row ${index + 1},1,true`
+  );
+  await page.getByLabel('Choose a time CSV').setInputFiles({
+    name: 'free-limit.csv', mimeType: 'text/csv',
+    buffer: Buffer.from(['Date,Client,Project,Description,Hours,Billable', ...rows].join('\n'))
+  });
+  await expect(page.getByRole('status')).toContainText('150 rows imported');
+  await expect(page.locator('.entry-row')).toHaveCount(150);
+
+  await page.getByLabel('Import another CSV').setInputFiles({
+    name: 'one-more.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('Date,Hours,Description\n2026-08-02,1,One more row')
+  });
+  await expect(page.getByRole('dialog')).toContainText('free ledger holds 150 rows');
+  await expect(page.locator('.entry-row')).toHaveCount(150);
+});
+
+test('@claim:demo-sandbox opens sample data without reading or replacing the real ledger', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('billable-review', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('entries', { keyPath: 'id' });
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const entry = {
+        id: 'real-only', batchId: 'real', importedAt: '2026-08-30T00:00:00.000Z', date: '2026-08-29',
+        client: 'Private client', project: 'Private project', description: 'Private ledger row', minutes: 60,
+        roundedMinutes: 60, roundingIncrement: 0, billable: true, status: 'review', invoiceRef: '',
+        resolutionNote: '', original: { Date: '2026-08-29' }
+      };
+      const tx = request.result.transaction('entries', 'readwrite');
+      tx.objectStore('entries').put(entry);
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    };
+  }));
+
+  await page.getByRole('link', { name: 'Try it with sample data' }).click();
+  await expect(page).toHaveURL(/\/demo$/);
+  await expect(page).toHaveTitle('Demo — Billable Review');
+  await expect(page.getByLabel('Demo workspace')).toContainText('Demo — sample data, nothing is saved');
+  await expect(page.getByText('Client revisions', { exact: true })).toBeVisible();
+  await expect(page.getByText('Private ledger row', { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Start for real' }).click();
+  await expect(page).toHaveURL('http://127.0.0.1:4173/');
+  await expect(page.getByText('Private ledger row', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Demo workspace')).toHaveCount(0);
 });
 
 test('reopens invoiced and written-off rows with their saved outcomes', async ({ page }) => {
@@ -121,7 +227,7 @@ test('rejects impossible dates before storage and invoice export', async ({ page
   expect(exported).not.toContain('2026-99-99');
 });
 
-test('neutralizes spreadsheet formulas only in the derived invoice CSV', async ({ page }) => {
+test('@claim:source-preservation neutralizes spreadsheet formulas only in the derived invoice CSV', async ({ page }) => {
   await page.goto('/');
   const source = 'Date,Client,Project,Description,Hours\n2026-08-01,=2+2,@SUM(1+1),+CMD,1';
   await page.getByLabel('Choose a time CSV').setInputFiles({ name: 'formula-prefixes.csv', mimeType: 'text/csv', buffer: Buffer.from(source) });
@@ -164,6 +270,28 @@ test('restores exported review settings with entry data', async ({ page }) => {
   await expect(dialog.getByLabel('Flag entries stale after')).toHaveValue('1');
 });
 
+test('@claim:backup-roundtrip exports and restores the complete local ledger', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
+  const backupDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export JSON backup' }).click();
+  const backupPath = await (await backupDownload).path();
+  expect(backupPath).not.toBeNull();
+
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Erase local data' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Review unbilled time');
+
+  await page.getByLabel('Choose a time CSV').setInputFiles({
+    name: 'temporary.csv', mimeType: 'text/csv',
+    buffer: Buffer.from('Date,Hours,Description\n2026-08-01,1,Temporary row')
+  });
+  await page.getByLabel('Restore JSON backup').setInputFiles(backupPath!);
+  await expect(page.getByRole('status')).toContainText('2 rows restored from backup');
+  await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
+  await expect(page.getByText('Temporary row', { exact: true })).toHaveCount(0);
+});
+
 test('gives secondary actions and legal links full-size touch targets', async ({ page }) => {
   await page.goto('/');
   const footerBoxes = await page.locator('.footer-links a').evaluateAll(links => links.map(link => {
@@ -200,7 +328,7 @@ test('gives secondary actions and legal links full-size touch targets', async ({
   }
 });
 
-test('makes no third-party requests in the local review workflow', async ({ page }) => {
+test('@claim:local-only makes no third-party requests in the local review workflow', async ({ page }) => {
   const outbound: string[] = [];
   page.on('request', request => {
     if (new URL(request.url()).origin !== 'http://127.0.0.1:4173') outbound.push(request.url());
@@ -239,7 +367,7 @@ test('rejects an invoiced backup row without a reference before replacing stored
   await expect(page.getByText('Missing reference', { exact: true })).toHaveCount(0);
 });
 
-test('groups review rows by client, project, and date', async ({ page }) => {
+test('@claim:date-groups groups review rows by client, project, and date', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/date-groups.csv');
   await expect(page.locator('.entry-group')).toHaveCount(3);
@@ -265,12 +393,22 @@ test('file imports and backup restore are reachable by keyboard', async ({ page 
   await expect(restore).toBeFocused();
 });
 
-test('loads its saved shell while offline', async ({ page, context }) => {
+test('@claim:offline-reload loads its saved shell and exports while offline', async ({ browser }, testInfo) => {
+  const context = await browser.newContext({ viewport: testInfo.project.name === 'mobile' ? { width: 390, height: 844 } : { width: 1280, height: 720 }, acceptDownloads: true });
+  const page = await context.newPage();
   await page.goto('/');
+  await page.getByLabel('Choose a time CSV').setInputFiles('tests/fixtures/clockify.csv');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Review Layout review/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save outcome' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export approved CSV' }).click();
+  expect((await download).suggestedFilename()).toMatch(/billable-review.*\.csv/);
+  await context.close();
 });

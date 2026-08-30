@@ -1,6 +1,7 @@
 import type { TimeEntry } from './types';
 
-const DB_NAME = 'billable-review';
+const DEMO = location.pathname.replace(/\/$/, '') === '/demo' || new URLSearchParams(location.search).get('demo') === '1';
+const DB_NAME = DEMO ? 'demo:billable-review' : 'billable-review';
 const STORE = 'entries';
 
 function database(): Promise<IDBDatabase> {

@@ -1,6 +1,8 @@
 import { copyFile, mkdir } from 'node:fs/promises';
 
-for (const route of ['privacy', 'terms']) {
+for (const route of ['privacy', 'terms', 'demo', '404']) {
   await mkdir(new URL(`../dist/${route}/`, import.meta.url), { recursive: true });
   await copyFile(new URL('../dist/index.html', import.meta.url), new URL(`../dist/${route}/index.html`, import.meta.url));
 }
+
+await copyFile(new URL('../dist/index.html', import.meta.url), new URL('../dist/404.html', import.meta.url));
