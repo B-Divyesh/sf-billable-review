@@ -19,7 +19,6 @@ interface VerifyOptions {
 }
 
 const MAX_AUTOMATIC_RETRY_SECONDS = 30;
-const DEFAULT_RETRY_SECONDS = 3;
 
 function retryAfterSeconds(value: string | null): number | null {
   if (!value) return null;
@@ -60,15 +59,15 @@ export async function verifyLicense(options: VerifyOptions = {}): Promise<Licens
     try {
       const response = await fetch(url);
       if (response.status === 429) {
-        // Retry-After is not CORS-readable unless the gateway exposes it. Use a
-        // short fallback so saturation still degrades safely in that case.
-        const seconds = retryAfterSeconds(response.headers.get('retry-after')) ?? DEFAULT_RETRY_SECONDS;
-        if (attempt === 0 && seconds && seconds <= MAX_AUTOMATIC_RETRY_SECONDS) {
+        // A cross-origin Retry-After is readable only when the gateway exposes
+        // it through CORS. Never guess a delay and risk another early request.
+        const seconds = retryAfterSeconds(response.headers.get('retry-after'));
+        if (attempt === 0 && seconds !== null && seconds <= MAX_AUTOMATIC_RETRY_SECONDS) {
           options.onRateLimited?.(seconds);
           await new Promise(resolve => window.setTimeout(resolve, seconds * 1000));
           continue;
         }
-        return { state: current, outcome: 'rate_limited', retryAfterSeconds: seconds };
+        return { state: current, outcome: 'rate_limited', ...(seconds === null ? {} : { retryAfterSeconds: seconds }) };
       }
       if (!response.ok) return { state: current, outcome: 'unavailable' };
       const result = await response.json() as { valid?: unknown };

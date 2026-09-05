@@ -112,6 +112,23 @@ test('@claim:billing-saturation waits for Retry-After and keeps the free workflo
 
   expect(requestTimes).toHaveLength(2);
   expect(requestTimes[1] - requestTimes[0]).toBeGreaterThanOrEqual(900);
+
+  let hiddenHeaderCalls = 0;
+  await page.route('https://api.sociobot.in/api/v1/products/billable-review/verify?license=qa-hidden-retry-token', async route => {
+    hiddenHeaderCalls += 1;
+    await route.fulfill({
+      status: 429,
+      headers: { 'Retry-After': '1' },
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'rate_limited' })
+    });
+  });
+
+  await page.goto('/?license=qa-hidden-retry-token');
+  await expect(page.getByRole('status')).toContainText('License checks are still busy.');
+  await page.waitForTimeout(1_200);
+  expect(hiddenHeaderCalls).toBe(1);
+  await expect(page.getByText('Layout review', { exact: true })).toBeVisible();
 });
 
 test('@claim:checkout-boundary keeps the import cap when checkout returns the former 404', async ({ page }) => {
@@ -337,8 +354,26 @@ test('@claim:backup-roundtrip exports and restores the complete local ledger', a
   await expect(page.getByText('Temporary row', { exact: true })).toHaveCount(0);
 });
 
-test('gives secondary actions and legal links full-size touch targets', async ({ page }) => {
+test('gives navigation, secondary actions, and legal links full-size touch targets', async ({ page }, testInfo) => {
   await page.goto('/');
+  if (testInfo.project.name !== 'mobile') {
+    const navigationBoxes = await page.locator('.site-header nav a').evaluateAll(links => links.map(link => {
+      const rect = link.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    }));
+    expect(navigationBoxes).toHaveLength(2);
+    for (const box of navigationBoxes) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+    }
+
+    await page.goto('/demo');
+    const demoNavigationBox = await page.locator('.site-header nav a').boundingBox();
+    expect(demoNavigationBox).not.toBeNull();
+    expect(demoNavigationBox!.height).toBeGreaterThanOrEqual(44);
+    expect(demoNavigationBox!.width).toBeGreaterThanOrEqual(44);
+    await page.goto('/');
+  }
   const footerBoxes = await page.locator('.footer-links a').evaluateAll(links => links.map(link => {
     const rect = link.getBoundingClientRect();
     return { width: rect.width, height: rect.height };

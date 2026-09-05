@@ -41,7 +41,7 @@ h2 { font-size: clamp(1.65rem, 3vw, 2.35rem); line-height: 1.1; }
 .brand { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; color: var(--ink); font: 700 18px Georgia, serif; text-decoration: none; }
 .brand img { border-radius: 9px; }
 .site-header nav { display: flex; align-items: center; gap: 24px; }
-.site-header nav a, .link-button { color: var(--ink); font-weight: 700; text-decoration: none; }
+.site-header nav a, .link-button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; color: var(--ink); font-weight: 700; text-decoration: none; }
 .link-button { min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
 main { min-height: 68vh; }
 footer { display: flex; width: min(1280px, calc(100% - 48px)); margin: 72px auto 0; padding: 28px 0 calc(28px + env(safe-area-inset-bottom)); justify-content: space-between; gap: 24px; border-top: 1px solid var(--rule); color: var(--ink-soft); font-size: 14px; }

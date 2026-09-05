@@ -13,6 +13,10 @@ assert.equal(identity.product, 'billable-review');
 assert.equal(identity.commit, expectedCommit);
 assert.equal(identity.dirty, false);
 
+const avifResponse = await fetch(`${baseUrl}/assets/hero-ledger-960.avif`, { method: 'HEAD', cache: 'no-store' });
+assert.equal(avifResponse.status, 200);
+assert.equal(avifResponse.headers.get('content-type'), 'image/avif');
+
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -38,6 +42,22 @@ try {
   assert.equal(axe.violations.filter(item => ['serious', 'critical'].includes(item.impact || '')).length, 0);
   assert.deepEqual(browserErrors, []);
   await context.close();
+
+  const desktopContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  const desktopPage = await desktopContext.newPage();
+  await desktopPage.goto(baseUrl, { waitUntil: 'networkidle' });
+  const navigationBoxes = await desktopPage.locator('.site-header nav a').evaluateAll(links => links.map(link => {
+    const rect = link.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }));
+  assert.equal(navigationBoxes.length, 2);
+  for (const box of navigationBoxes) {
+    assert.ok(box.width >= 44 && box.height >= 44, `Desktop navigation target was ${box.width}×${box.height}px.`);
+  }
+  await desktopPage.goto(`${baseUrl}/demo`, { waitUntil: 'networkidle' });
+  const realLedgerBox = await desktopPage.locator('.site-header nav a').boundingBox();
+  assert.ok(realLedgerBox && realLedgerBox.width >= 44 && realLedgerBox.height >= 44, 'Demo navigation target must be at least 44×44px.');
+  await desktopContext.close();
 } finally {
   await browser.close();
 }

@@ -1,6 +1,6 @@
 # Landing-page copy audit
 
-Audited 2026-08-30. Word counts treat spaced symbols as words. No line exceeds 22 words, and none contains a banned marketing word.
+Audited 2026-09-05. Word counts treat spaced symbols as words. No line exceeds 22 words, and none contains a banned marketing word.
 
 | Words | Exact landing-page copy | Result |
 | ---: | --- | --- |
