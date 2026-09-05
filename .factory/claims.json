@@ -74,6 +74,6 @@
     "claim": "License checks follow a browser-readable Retry-After when the shared gateway returns 429; otherwise they stop safely while review stays usable.",
     "where": "README, billing contract",
     "test": "npm run test:e2e -- --grep @claim:billing-saturation",
-    "sandbox": "fresh browser contexts; recorded 429 with exposed Retry-After then valid 200, plus an unexposed-header case; assert delayed retry only when readable and free review in both cases"
+    "sandbox": "fresh browser state; recorded 429 with exposed Retry-After then valid 200, followed by an unexposed-header case; assert delayed retry only when readable and free review in both cases"
   }
 ]
